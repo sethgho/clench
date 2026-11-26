@@ -275,6 +275,25 @@ pub struct Parts<'a> {
     pub after: &'a str,
 }
 
+/// What a script leaves out for one [`BlockKind`]: blocks replaced by a
+/// marker token and blocks dropped silently, with the number of words in each
+/// group. Hosts use it to tell the reader honestly what they will not see.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct Omitted {
+    /// The block kind.
+    pub kind: BlockKind,
+    /// Blocks of this kind shown as a single marker token.
+    pub marked: usize,
+    /// Words inside the marked blocks.
+    pub marked_words: usize,
+    /// Blocks of this kind left out without a trace, by the policy or by the
+    /// extractor's skip hint.
+    pub skipped: usize,
+    /// Words inside the skipped blocks.
+    pub skipped_words: usize,
+}
+
 /// An immutable sequence of tokens built from a [`Document`].
 ///
 /// With the `serde` feature a script can be serialized for inspection; it is
@@ -285,6 +304,7 @@ pub struct Script {
     blocks: Vec<ScriptBlock>,
     tokens: Vec<Token>,
     sentence_starts: Vec<usize>,
+    omitted: Vec<Omitted>,
 }
 
 impl Script {
@@ -297,7 +317,11 @@ impl Script {
     pub fn with_options(doc: &Document, options: &ScriptOptions) -> Script {
         let mut script = Script::default();
         for (index, block) in doc.blocks.iter().enumerate() {
-            match options.policy.resolve(block) {
+            let action = options.policy.resolve(block);
+            if action != BlockAction::Read {
+                script.record_omission(block.kind, action, &block.text);
+            }
+            match action {
                 BlockAction::Skip => {}
                 BlockAction::Mark => script.push_marker(index, block.kind, &block.text),
                 BlockAction::Read => {
@@ -306,6 +330,31 @@ impl Script {
             }
         }
         script
+    }
+
+    fn record_omission(&mut self, kind: BlockKind, action: BlockAction, text: &str) {
+        let at = match self.omitted.iter().position(|o| o.kind == kind) {
+            Some(at) => at,
+            None => {
+                self.omitted.push(Omitted {
+                    kind,
+                    marked: 0,
+                    marked_words: 0,
+                    skipped: 0,
+                    skipped_words: 0,
+                });
+                self.omitted.len() - 1
+            }
+        };
+        let words = text::words(text).count();
+        let entry = &mut self.omitted[at];
+        if action == BlockAction::Mark {
+            entry.marked += 1;
+            entry.marked_words += words;
+        } else {
+            entry.skipped += 1;
+            entry.skipped_words += words;
+        }
     }
 
     fn push_marker(&mut self, index: usize, kind: BlockKind, text: &str) {
@@ -407,6 +456,12 @@ impl Script {
     /// [`Token::paragraph`] indexes this slice.
     pub fn blocks(&self) -> &[ScriptBlock] {
         &self.blocks
+    }
+
+    /// What the script leaves out, one entry per [`BlockKind`] that had at
+    /// least one marked or skipped block, in order of first appearance.
+    pub fn omitted(&self) -> &[Omitted] {
+        &self.omitted
     }
 
     /// Number of tokens.

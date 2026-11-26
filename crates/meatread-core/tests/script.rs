@@ -502,3 +502,49 @@ fn the_pronoun_i_and_everyday_words_can_end_a_sentence() {
         ["He", "Then"]
     );
 }
+
+#[test]
+fn omitted_totals_marked_and_skipped_blocks_per_kind() {
+    let mut hinted = Block::paragraph("one hinted away paragraph");
+    hinted.skip = true;
+    let doc = Document::from_blocks(vec![
+        Block::paragraph("Read this paragraph."),
+        Block::new(BlockKind::Code, "fn main() { run(); }"),
+        Block::new(BlockKind::Caption, "Photo: someone"),
+        Block::new(BlockKind::Code, "let x = 1;"),
+        Block::new(BlockKind::Footnote, "a note with five words"),
+        hinted,
+        Block::new(BlockKind::Rule, ""),
+        Block::new(BlockKind::Footnote, "second note"),
+    ]);
+    let script = Script::new(&doc);
+    let got: Vec<_> = script
+        .omitted()
+        .iter()
+        .map(|o| (o.kind, o.marked, o.marked_words, o.skipped, o.skipped_words))
+        .collect();
+    assert_eq!(
+        got,
+        [
+            (BlockKind::Code, 2, 9, 0, 0),
+            (BlockKind::Caption, 0, 0, 1, 2),
+            (BlockKind::Footnote, 0, 0, 2, 7),
+            (BlockKind::Paragraph, 0, 0, 1, 4),
+            (BlockKind::Rule, 0, 0, 1, 0),
+        ]
+    );
+
+    let everything = ScriptOptions {
+        policy: ReadPolicy {
+            code: BlockAction::Read,
+            caption: BlockAction::Read,
+            footnote: BlockAction::Read,
+            rule: BlockAction::Read,
+            honor_skip_hint: false,
+            ..ReadPolicy::default()
+        },
+        ..ScriptOptions::default()
+    };
+    assert!(Script::with_options(&doc, &everything).omitted().is_empty());
+    assert!(Script::new(&Document::default()).omitted().is_empty());
+}

@@ -58,7 +58,9 @@
 //!   and tables become markers (`[code]`, `[table]`); figures, captions,
 //!   footnotes and rules are skipped. Marker tokens have
 //!   [`TokenKind::Marker`] and their byte range covers the whole block, so
-//!   a host can show what was skipped.
+//!   a host can show what was skipped. [`Script::omitted`] totals, per block
+//!   kind, how many blocks were marked or skipped and how many words they
+//!   held.
 //! * **Pivot.** Over a token's core (first to last alphanumeric grapheme
 //!   cluster), the pivot is the 1st cluster for length 1, the 2nd for 2–5,
 //!   3rd for 6–9, 4th for 10–13 and 5th for 14+. A token without
@@ -102,6 +104,6 @@ pub use document::{Block, BlockKind, Document, Source};
 pub use pacing::Pacing;
 pub use player::{Frame, PlayState, Player};
 pub use script::{
-    BlockAction, Context, Parts, Pause, ReadPolicy, Script, ScriptBlock, ScriptOptions, Token,
-    TokenKind,
+    BlockAction, Context, Omitted, Parts, Pause, ReadPolicy, Script, ScriptBlock, ScriptOptions,
+    Token, TokenKind,
 };
