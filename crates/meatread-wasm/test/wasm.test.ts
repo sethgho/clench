@@ -33,7 +33,7 @@ beforeAll(() => {
   initSync({ module: readFileSync(join(import.meta.dir, "../pkg/meatread_bg.wasm")) })
   const build = Bun.spawnSync(["cargo", "build", "-q", "-p", "meatread-cli"], { cwd: root, stderr: "pipe" })
   if (build.exitCode !== 0) throw new Error(build.stderr.toString())
-})
+}, 600_000)
 
 describe("extract", () => {
   test("reads the acceptance page", () => {
