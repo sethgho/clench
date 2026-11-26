@@ -14,6 +14,7 @@
 
 mod chrome;
 mod fallback;
+mod shield;
 mod trim;
 mod walk;
 
@@ -53,7 +54,7 @@ pub fn extract_html(html: &str, url: &str) -> Result<Document, ExtractError> {
     };
 
     let mut closing_notes = HashSet::new();
-    let article = readability(html, url);
+    let article = readability(&shield::run(html), url);
     if let Some(article) = &article {
         let m = &article.metadata;
         doc.title = collapse(&m.title);

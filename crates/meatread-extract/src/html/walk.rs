@@ -289,7 +289,7 @@ fn is_backlink(n: &NodeRef) -> bool {
 }
 
 fn has_class(n: &NodeRef, pred: impl Fn(&str) -> bool) -> bool {
-    n.attr("class")
+    super::shield::class_value(n)
         .is_some_and(|c| c.split_whitespace().any(|t| pred(&t.to_ascii_lowercase())))
 }
 

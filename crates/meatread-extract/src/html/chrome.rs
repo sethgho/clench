@@ -4,17 +4,28 @@
 
 use std::collections::HashSet;
 
-use dom_smoothie::dom_query::NodeRef;
+use dom_smoothie::dom_query::{NodeRef, Selection};
 use meatread_core::{Block, BlockKind};
 
 use crate::text::{collapse, word_count};
 
 /// Class-token prefixes of labels that sit above a headline ("kicker").
-const LABEL_PREFIXES: &[&str] = &["kicker", "eyebrow", "overline", "upper-deck"];
+const LABEL_PREFIXES: &[&str] = &["kicker", "eyebrow", "upper-deck"];
 
-/// Class tokens of maintenance markers and print-hidden furniture
-/// ("[citation needed]", section edit links).
-const NOISE_CLASSES: &[&str] = &["noprint", "inline-template", "mw-editsection"];
+/// Class-token prefix of labels that is also a common text-decoration utility,
+/// and so is only trusted on a block-level element outside any paragraph.
+const AMBIGUOUS_LABEL_PREFIX: &str = "overline";
+
+/// Class tokens of maintenance markers ("[citation needed]", section edit
+/// links). These are MediaWiki's own names, not general styling words.
+const NOISE_CLASSES: &[&str] = &["inline-template", "mw-editsection"];
+
+/// A label or module with more words than this is treated as content.
+const LABEL_MAX_WORDS: usize = 20;
+
+/// A recirculation module that holds a paragraph at least this long is
+/// treated as content.
+const MODULE_MAX_PARAGRAPH_WORDS: usize = 60;
 
 /// Class, id or `data-area` values naming recirculation modules and
 /// subscription prompts.
@@ -51,22 +62,65 @@ const TAIL_MAX_WORDS: usize = 60;
 
 /// Whether an element is a headline label, maintenance marker, recirculation
 /// module or subscription prompt.
+///
+/// Class names alone are weak evidence (`overline` is also a text-decoration
+/// utility). A label must be short, free of block-level children and the sole
+/// text of its block, so it can never take words out of running text; the
+/// ambiguous `overline` must also be a block-level element. A module must be
+/// a block-level element outside any paragraph and is kept if it contains a
+/// long paragraph. Maintenance markers carry MediaWiki-specific names and are
+/// dropped wherever they appear.
 pub(super) fn is_furniture(n: &NodeRef) -> bool {
     let tokens = |attr: &str| -> Vec<String> {
-        n.attr(attr)
+        let value = if attr == "class" {
+            super::shield::class_value(n)
+        } else {
+            n.attr(attr).map(|v| v.to_string())
+        };
+        value
             .map(|v| v.split_whitespace().map(str::to_ascii_lowercase).collect())
             .unwrap_or_default()
     };
     let classes = tokens("class");
-    if classes.iter().any(|c| {
-        NOISE_CLASSES.contains(&c.as_str()) || LABEL_PREFIXES.iter().any(|p| c.starts_with(p))
-    }) {
+    if classes.iter().any(|c| NOISE_CLASSES.contains(&c.as_str())) {
         return true;
     }
+    let has_prefix = |p: &str| classes.iter().any(|c| c.starts_with(p));
+    if is_short_leaf(n, LABEL_MAX_WORDS)
+        && ((LABEL_PREFIXES.iter().any(|p| has_prefix(p)) && owns_its_block(n))
+            || (has_prefix(AMBIGUOUS_LABEL_PREFIX) && is_standalone_block(n)))
+    {
+        return true;
+    }
+    if !is_standalone_block(n) {
+        return false;
+    }
     let named = |v: &String| MODULE_NAMES.contains(&v.as_str());
-    classes.iter().any(named)
+    (classes.iter().any(named)
         || tokens("id").iter().any(named)
-        || tokens("data-area").iter().any(named)
+        || tokens("data-area").iter().any(named))
+        && !has_long_paragraph(n, MODULE_MAX_PARAGRAPH_WORDS)
+}
+
+/// A block-level element that is not inside a paragraph.
+fn is_standalone_block(n: &NodeRef) -> bool {
+    !is_inline_element(n) && !n.ancestors_it(None).any(|a| a.has_name("p"))
+}
+
+const BLOCK_SELECTOR: &str = "p, div, ul, ol, li, table, pre, blockquote, section, article, \
+    h1, h2, h3, h4, h5, h6, figure, header, footer, aside, main, nav";
+
+/// Whether `n` has no block-level descendants and at most `max_words` words.
+pub(super) fn is_short_leaf(n: &NodeRef, max_words: usize) -> bool {
+    !Selection::from(*n).select(BLOCK_SELECTOR).exists() && word_count(&n.text()) <= max_words
+}
+
+fn has_long_paragraph(n: &NodeRef, words: usize) -> bool {
+    Selection::from(*n)
+        .select("p")
+        .nodes()
+        .iter()
+        .any(|p| word_count(&p.text()) >= words)
 }
 
 /// Elements that flow within a line of text. Anything else starts a new block.

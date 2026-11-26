@@ -86,3 +86,53 @@ fn a_lone_dateline_is_still_dropped() {
     );
     assert!(!reading_text(&doc).contains("March 1, 2026"));
 }
+
+// ------------------------------------------------------ inline label classes
+
+#[test]
+fn an_overline_utility_class_on_inline_text_keeps_the_words() {
+    let doc = html_doc(
+        "",
+        "<p>This is <span class=\"overline\">very important</span> text that we keep.</p>\
+<p>Also <span class=\"kicker\">this part</span> and <span class=\"eyebrow\">that part</span> stay.</p>",
+    );
+    let t = texts(&doc);
+    assert!(t.contains(&"This is very important text that we keep.".to_string()));
+    assert!(t.contains(&"Also this part and that part stay.".to_string()));
+}
+
+#[test]
+fn a_block_wrapped_in_a_label_utility_class_is_not_dropped() {
+    let doc = html_doc(
+        "",
+        "<div class=\"overline\"><p>Wrapped paragraph one has plenty of words in it to be an article paragraph for sure.</p>\
+<p>Wrapped paragraph two also has plenty of words in it to be an article paragraph too.</p></div>",
+    );
+    let text = reading_text(&doc);
+    assert!(text.contains("Wrapped paragraph one"));
+    assert!(text.contains("Wrapped paragraph two"));
+}
+
+#[test]
+fn a_module_name_on_inline_text_keeps_the_words() {
+    let doc = html_doc(
+        "",
+        "<p>The <span class=\"related\">closely related species</span> of this bird are all listed in the appendix at the back of the book.</p>",
+    );
+    assert!(reading_text(&doc).contains("The closely related species of this bird are all listed in the appendix at the back of the book."));
+}
+
+#[test]
+fn readability_hook_classes_on_inline_text_do_not_remove_words() {
+    let doc = html_doc(
+        "",
+        "<p>As <span class=\"author\">Jane Doe</span> wrote in her famous letter, the <a class=\"share\" href=\"/x\">shared meadow</a> and the <span id=\"comments\">quiet orchard</span> were never sold.</p>",
+    );
+    assert!(
+        reading_text(&doc).contains(
+            "As Jane Doe wrote in her famous letter, the shared meadow and the quiet orchard were never sold."
+        ),
+        "{}",
+        reading_text(&doc)
+    );
+}
