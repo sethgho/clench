@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs"
 import wasmPath from "../../../crates/meatread-wasm/pkg/meatread_bg.wasm" with { type: "file" }
-import { initSync } from "../../../crates/meatread-wasm/pkg/meatread.js"
+import { extract as rawExtract, initSync } from "../../../crates/meatread-wasm/pkg/meatread.js"
+import type { Document } from "../../../crates/meatread-wasm/pkg/meatread.js"
 
 export { extract, Session, version as engineVersion } from "../../../crates/meatread-wasm/pkg/meatread.js"
-export type { Context, Document, Frame, PlayState, Settings } from "../../../crates/meatread-wasm/pkg/meatread.js"
+export type { Context, Document, Frame, Omitted, PlayState, Settings } from "../../../crates/meatread-wasm/pkg/meatread.js"
 
 let loaded = false
 
@@ -20,4 +21,41 @@ export function loadEngine(): void {
 export function isEngineCrash(error: unknown): boolean {
   if (error instanceof WebAssembly.RuntimeError) return true
   return error instanceof Error && error.message.startsWith("meatread engine crashed:")
+}
+
+/** The extractor could not read the document; the message is for the reader. */
+export class ExtractError extends Error {
+  override name = "ExtractError"
+}
+
+/** Rewrites an engine error as a sentence for the reader. */
+export function describeExtractError(error: unknown): string {
+  if (isEngineCrash(error)) {
+    return "the extractor failed on this document (an internal error), so it cannot be read"
+  }
+  const message = error instanceof Error ? error.message : String(error)
+  const nested = message.match(/nests elements more than (\d+) levels deep/)
+  if (nested) {
+    const limit = Number(nested[1]).toLocaleString("en-US")
+    return `the page is nested more than ${limit} elements deep, far beyond any real article, so it was not read`
+  }
+  return message
+}
+
+/**
+ * Extracts a document. Any failure, including a trap inside the engine, is
+ * reported as an `ExtractError`. After a trap the instance is unusable, so
+ * the caller must not start a session from it; the reader exits instead.
+ */
+export function extractDocument(
+  bytes: Uint8Array,
+  contentType: string | undefined,
+  url: string | undefined,
+  run: typeof rawExtract = rawExtract,
+): Document {
+  try {
+    return run(bytes, contentType, url)
+  } catch (error) {
+    throw new ExtractError(describeExtractError(error))
+  }
 }
