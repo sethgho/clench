@@ -57,14 +57,39 @@ export class Driver {
     this.running = false
   }
 
+  /**
+   * Reports the time since the last wake to the session, never more than the
+   * reader could have watched. If the process was suspended or starved, the
+   * excess is dropped: the current word completes and the next gets at most
+   * half its own time, so no word is skipped unseen and playback resumes
+   * where it left off. Ordinary timer lateness is far below that bound, so
+   * it still shortens the following word and drift does not accumulate.
+   * Only the time actually credited counts as time spent playing.
+   */
   private credit(): boolean {
     const now = this.clock.now()
-    const elapsed = now - this.last + this.carry
+    const real = now - this.last
+    const elapsed = real + this.carry
     const whole = Math.max(0, Math.floor(elapsed))
-    this.carry = elapsed - whole
-    this.played += now - this.last
     this.last = now
-    return this.session.advance(whole)
+    const due = this.session.nextChangeIn()
+    if (due === undefined || whole <= due) {
+      this.carry = elapsed - whole
+      this.played += real
+      return this.session.advance(whole)
+    }
+    let changed = this.session.advance(due)
+    let credited = due
+    const next = this.session.nextChangeIn()
+    const late = next === undefined ? 0 : Math.min(whole - due, Math.floor(next / 2))
+    if (late > 0) {
+      changed = this.session.advance(late) || changed
+      credited += late
+    }
+    const dropped = whole - due > late
+    this.carry = dropped ? 0 : elapsed - whole
+    this.played += dropped ? credited : real
+    return changed
   }
 
   private schedule(): void {

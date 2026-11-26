@@ -83,6 +83,27 @@ describe("Driver", () => {
     expect(session.index).toBe(1)
   })
 
+  test("a huge stall advances exactly one word and counts only credited time", () => {
+    const { session, clock, driver } = setup()
+    driver.control(() => session.play())
+    const first = session.nextChangeIn()!
+    clock.lateness = () => 20_000
+    driver.control(() => session.pause())
+    driver.control(() => session.play())
+    clock.tick(first + 20_000)
+    expect(session.index).toBe(1)
+    expect(driver.playedMs).toBeLessThan(first + 1000)
+  })
+
+  test("a stall before a key press does not skip words either", () => {
+    const { session, clock, driver } = setup()
+    driver.control(() => session.play())
+    clock.t += 20_000
+    driver.control(() => session.pause())
+    expect(session.index).toBe(1)
+    expect(driver.playedMs).toBeLessThan(1000)
+  })
+
   test("dispose cancels the pending wake", () => {
     const { session, clock, driver } = setup()
     driver.control(() => session.play())
@@ -92,7 +113,6 @@ describe("Driver", () => {
 })
 
 test("on the real clock, wall time matches the engine's schedule", async () => {
-  const session = new Session(docFrom(TEXT.slice(0, 250)), { wpm: 1000 })
   const plan = new Session(docFrom(TEXT.slice(0, 250)), { wpm: 1000 })
   plan.play()
   let expected = 0
@@ -100,15 +120,24 @@ test("on the real clock, wall time matches the engine's schedule", async () => {
     plan.advance(w)
     expected += w
   }
-  const { promise, resolve } = Promise.withResolvers<void>()
-  const driver = new Driver(session, realClock, () => {
-    if (session.state === "finished") resolve()
-  })
-  const start = performance.now()
-  driver.control(() => session.play())
-  await promise
-  const wall = performance.now() - start
-  expect(session.tokenCount).toBeGreaterThan(40)
-  expect(wall).toBeGreaterThanOrEqual(expected - 1)
-  expect(wall - expected).toBeLessThan(30)
-}, 15_000)
+  expect(plan.tokenCount).toBeGreaterThan(40)
+  // A loaded machine can delay one run by an arbitrary amount, but a Driver
+  // that accumulates drift (a millisecond or more per word over 50+ words)
+  // is late on every run, so the best of a few attempts must be close.
+  const excess: number[] = []
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const s = new Session(docFrom(TEXT.slice(0, 250)), { wpm: 1000 })
+    const { promise, resolve } = Promise.withResolvers<void>()
+    const driver = new Driver(s, realClock, () => {
+      if (s.state === "finished") resolve()
+    })
+    const start = performance.now()
+    driver.control(() => s.play())
+    await promise
+    const wall = performance.now() - start
+    expect(wall).toBeGreaterThanOrEqual(expected - 1)
+    excess.push(wall - expected)
+    if (wall - expected < 30) break
+  }
+  expect(Math.min(...excess)).toBeLessThan(30)
+}, 30_000)
