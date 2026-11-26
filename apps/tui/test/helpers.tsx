@@ -86,13 +86,13 @@ export interface Harness {
 
 export async function mount(
   doc: Document,
-  opts: { width?: number; height?: number; settings?: Settings; theme?: Theme } = {},
+  opts: { width?: number; height?: number; settings?: Settings; theme?: Theme; stopProcess?: () => void; terminal?: { suspend(): Promise<void>; resume(): Promise<void> }; session?: Session } = {},
 ): Promise<Harness> {
-  const session = new Session(doc, opts.settings ?? { wpm: 300 })
+  const session = opts.session ?? new Session(doc, opts.settings ?? { wpm: 300 })
   const clock = new FakeClock()
   let quits = 0
   const t = await testRender(
-    () => <App doc={doc} session={session} theme={opts.theme ?? makeTheme(true)} clock={clock} onQuit={() => quits++} />,
+    () => <App doc={doc} session={session} theme={opts.theme ?? makeTheme(true)} clock={clock} onQuit={() => quits++} stopProcess={opts.stopProcess} terminal={opts.terminal} />,
     { width: opts.width ?? 80, height: opts.height ?? 24 },
   )
   const screen = async () => {

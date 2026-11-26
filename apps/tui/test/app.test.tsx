@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { RGBA, TextAttributes } from "@opentui/core"
 import { testRender } from "@opentui/solid"
 import { Session } from "../src/engine"
+import { finishedSummary, notRead } from "../src/ui/app"
 import { makeTheme } from "../src/theme"
 import { pivotColumn, Reticle } from "../src/ui/reticle"
 import { columns, docFrom, fixtureDoc, mount, sameColor, type Harness } from "./helpers"
@@ -80,6 +81,34 @@ describe("reticle", () => {
     t.renderer.destroy()
   })
 
+  for (const color of [true, false]) {
+    test(`heading words are bold and body words are not (${color ? "colour" : "NO_COLOR"})`, async () => {
+      const h = await app(docFrom("# Big Heading\n\nBody words follow here.", "text/markdown"), { theme: makeTheme(color) })
+      await h.press(" ")
+      const row = (await h.screen()).split("\n").findIndex((l) => l.includes("┬")) + 1
+      expect(h.session.frame().block_kind).toBe("heading")
+      expect(h.word()).toBe("Big")
+      const headSpans = h.t.captureSpans().lines[row]!.spans.filter((x) => x.text.trim() !== "")
+      const nonPivot = headSpans.filter((x) => x.text !== h.session.frame().pivot)
+      expect(nonPivot.length).toBeGreaterThan(0)
+      for (const x of headSpans) expect(x.attributes & TextAttributes.BOLD).toBeTruthy()
+      await h.press("]")
+      expect(h.session.frame().block_kind).toBe("paragraph")
+      const bodySpans = h.t.captureSpans().lines[row]!.spans.filter((x) => x.text.trim() !== "" && x.text !== h.session.frame().pivot)
+      for (const x of bodySpans) expect(x.attributes & TextAttributes.BOLD).toBeFalsy()
+    })
+  }
+
+  test("the first word of a new block gets heavier guide lines; later words do not", async () => {
+    const h = await app(docFrom(PROSE))
+    await h.press(" ")
+    expect(await h.screen()).not.toContain("━━━")
+    await h.press("]")
+    expect((await h.screen()).split("\n").some((l) => l.includes("━━━┬━━━"))).toBe(true)
+    await h.press(".")
+    expect((await h.screen()).split("\n").some((l) => l.includes("━━━┬"))).toBe(false)
+  })
+
   test("NO_COLOR keeps the pivot distinguishable by attributes alone", async () => {
     const plain = makeTheme(false)
     const f = new Session(docFrom("reading")).frame()
@@ -114,6 +143,34 @@ describe("screens", () => {
     const s = await h.screen()
     expect(s).toContain("Only part of this page could be extracted")
     expect(pivotAt(h.t, s.split("\n").findIndex((l) => l.includes("Only part")), theme.warn)).toBeDefined()
+  })
+
+  test("ready screen says what is not read, only when something is", async () => {
+    const plain = await app(docFrom(PROSE))
+    expect(await plain.screen()).not.toContain("not read")
+    plain.t.renderer.destroy()
+    open = undefined
+    const md = "# Title\n\nIntro words here.\n\n```\nlet x = 1;\n```\n\n```\nlet y = 2;\n```\n\nOutro."
+    const h = await app(docFrom(md, "text/markdown"))
+    expect(await h.screen()).toContain("not read: 2 code blocks (marked)")
+  })
+
+  test("notRead words kinds, singulars, marked versus silent, and ignores empty blocks", () => {
+    const o = (kind: any, marked: number, marked_words: number, skipped: number, skipped_words: number) => ({ kind, marked, marked_words, skipped, skipped_words })
+    expect(notRead([])).toBeUndefined()
+    expect(notRead([o("rule", 0, 0, 3, 0)])).toBeUndefined()
+    expect(notRead([o("code", 15, 300, 0, 0), o("footnote", 0, 0, 12, 90), o("caption", 0, 0, 1, 5)])).toBe(
+      "not read: 15 code blocks (marked), 12 footnotes, 1 caption",
+    )
+  })
+
+  test("ready screen says when a document is only an abstract", async () => {
+    const doc = fixtureDoc("10-arxiv-abs")
+    expect(doc.source).toBe("citation_abstract")
+    const h = await app(doc)
+    const s = await h.screen()
+    expect(s).toContain("Abstract only")
+    expect(s).not.toContain("JavaScript")
   })
 
   test("ready screen notes a paywall hint on a complete page", async () => {
@@ -250,6 +307,68 @@ describe("screens", () => {
     s = await h.press("r")
     expect(h.session.state).toBe("playing")
     expect(h.session.index).toBe(0)
+  })
+
+  test("finished after a straight read reports a rate; after a jump it does not", async () => {
+    const straight = await app(docFrom(PROSE))
+    await straight.press(" ")
+    straight.clock.runUntilIdle()
+    const s1 = await straight.screen()
+    expect(s1).toMatch(/\d+ words in 0:\d\d · [\d,]+ wpm overall/)
+    expect(s1).toContain("space or r read again")
+    straight.t.renderer.destroy()
+    open = undefined
+
+    const jumped = await app(docFrom(PROSE))
+    await jumped.press(" ")
+    jumped.clock.tick(500)
+    await jumped.press("9")
+    jumped.clock.runUntilIdle()
+    const s2 = await jumped.screen()
+    expect(jumped.session.state).toBe("finished")
+    expect(s2).toContain("words in the document")
+    expect(s2).toContain("spent reading")
+    expect(s2).not.toContain("wpm overall")
+  })
+
+  test("space on the finished screen reads again as a fresh straight run", async () => {
+    const h = await app(docFrom("Just four short words."))
+    await h.press(" ")
+    await h.press("9")
+    h.clock.runUntilIdle()
+    expect(await h.screen()).not.toContain("wpm overall")
+    await h.press(" ")
+    expect(h.session.state).toBe("playing")
+    expect(h.session.index).toBe(0)
+    h.clock.runUntilIdle()
+    expect(await h.screen()).toContain("wpm overall")
+  })
+
+  test("ctrl-z pauses, leaves the terminal, stops the process; continuing re-enters paused at the same word", async () => {
+    const events: string[] = []
+    const terminal = {
+      suspend: async () => void events.push("suspend"),
+      resume: async () => void events.push("resume"),
+    }
+    const h = await mount(docFrom(PROSE), { stopProcess: () => events.push("stop"), terminal })
+    open = h
+    await h.press(" ")
+    h.clock.tick(400)
+    const index = h.session.index
+    expect(index).toBeGreaterThan(0)
+    h.t.mockInput.pressKey("z", { ctrl: true })
+    await Bun.sleep(30)
+    expect(h.session.state).toBe("paused")
+    expect(events).toEqual(["suspend", "stop"])
+    h.clock.tick(10_000)
+    expect(h.session.index).toBe(index)
+    process.emit("SIGCONT")
+    await Bun.sleep(30)
+    expect(events).toEqual(["suspend", "stop", "resume"])
+    expect(h.session.state).toBe("paused")
+    expect(h.session.index).toBe(index)
+    await h.press(" ")
+    expect(h.session.state).toBe("playing")
   })
 
   test("q and ctrl-c quit", async () => {

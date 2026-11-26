@@ -10,6 +10,7 @@ export interface Style {
 export interface Theme {
   text: Style
   title: Style
+  heading: Style
   muted: Style
   pivot: Style
   marker: Style
@@ -34,6 +35,7 @@ export function makeTheme(color: boolean): Theme {
   return {
     text: s(text, NONE),
     title: s(text, BOLD),
+    heading: s(text, BOLD),
     muted: s(indexed(8), color ? NONE : DIM),
     pivot: s(indexed(1), color ? BOLD : BOLD | UNDERLINE),
     marker: s(indexed(6), color ? ITALIC : ITALIC | DIM),

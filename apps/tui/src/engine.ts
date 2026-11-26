@@ -4,7 +4,7 @@ import { extract as rawExtract, initSync } from "../../../crates/meatread-wasm/p
 import type { Document } from "../../../crates/meatread-wasm/pkg/meatread.js"
 
 export { extract, Session, version as engineVersion } from "../../../crates/meatread-wasm/pkg/meatread.js"
-export type { Context, Document, Frame, Omitted, PlayState, Settings } from "../../../crates/meatread-wasm/pkg/meatread.js"
+export type { BlockKind, Context, Document, Frame, Omitted, PlayState, Settings } from "../../../crates/meatread-wasm/pkg/meatread.js"
 
 let loaded = false
 

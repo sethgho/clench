@@ -11,10 +11,10 @@ export function pivotColumn(width: number): number {
 /** Half-width of the guide lines either side of the pivot column. */
 const GUIDE_REACH = 12
 
-function guide(width: number, tick: string): string {
+function guide(width: number, tick: string, line: string): string {
   const pc = pivotColumn(width)
   const reach = Math.max(0, Math.min(GUIDE_REACH, pc, width - pc - 1))
-  return " ".repeat(pc - reach) + "─".repeat(reach) + tick + "─".repeat(reach)
+  return " ".repeat(pc - reach) + line.repeat(reach) + tick + line.repeat(reach)
 }
 
 /**
@@ -23,15 +23,18 @@ function guide(width: number, tick: string): string {
  * the pivot is right-aligned against it and the text after starts right
  * after it, so alignment follows the renderer's own display-width
  * measurement (wide and combining characters included). Overflow on either
- * side is clipped rather than shifting the pivot.
+ * side is clipped rather than shifting the pivot. Heading words are bold,
+ * and the guide lines thicken on the first word of a new block.
  */
-export function Reticle(props: { frame: Frame; width: number; top: number; theme: Theme }) {
-  const word = () => (props.frame.is_marker ? props.theme.marker : props.theme.text)
+export function Reticle(props: { frame: Frame; width: number; top: number; theme: Theme; blockStart?: boolean }) {
+  const heading = () => props.frame.block_kind === "heading" && !props.frame.is_marker
+  const word = () => (props.frame.is_marker ? props.theme.marker : heading() ? props.theme.heading : props.theme.text)
+  const line = () => (props.blockStart ? "━" : "─")
   const pivot = () => (props.frame.is_marker ? props.theme.marker : props.theme.pivot)
   return (
     <box position="absolute" top={props.top} left={0} width={props.width} height={3} flexDirection="column">
       <text fg={props.theme.guide.fg} attributes={props.theme.guide.attributes} wrapMode="none" height={1}>
-        {guide(props.width, "┬")}
+        {guide(props.width, "┬", line())}
       </text>
       <box flexDirection="row" width={props.width} height={1}>
         <box
@@ -50,7 +53,7 @@ export function Reticle(props: { frame: Frame; width: number; top: number; theme
         </box>
       </box>
       <text fg={props.theme.guide.fg} attributes={props.theme.guide.attributes} wrapMode="none" height={1}>
-        {guide(props.width, "┴")}
+        {guide(props.width, "┴", line())}
       </text>
     </box>
   )

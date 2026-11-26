@@ -13,6 +13,7 @@ export type Action =
   | { type: "help" }
   | { type: "close" }
   | { type: "quit" }
+  | { type: "suspend" }
 
 export interface KeyLike {
   name: string
@@ -27,7 +28,10 @@ export const WPM_STEP = 25
 
 /** The action bound to a key press, if any. */
 export function actionFor(key: KeyLike): Action | undefined {
-  if (key.ctrl) return key.name === "c" ? { type: "quit" } : undefined
+  if (key.ctrl) {
+    if (key.name === "c") return { type: "quit" }
+    return key.name === "z" ? { type: "suspend" } : undefined
+  }
   if (key.meta) return undefined
   switch (key.name) {
     case "space":
@@ -84,5 +88,6 @@ export const KEY_HELP: ReadonlyArray<readonly [string, string]> = [
   ["0 – 9", "jump to that tenth"],
   ["r", "restart"],
   ["?", "this help"],
+  ["ctrl-z", "suspend (fg resumes, paused)"],
   ["q  ctrl-c", "quit"],
 ]

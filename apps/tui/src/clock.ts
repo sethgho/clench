@@ -52,6 +52,11 @@ export class Driver {
     return this.played
   }
 
+  /** Starts counting played time again from zero. */
+  resetPlayed(): void {
+    this.played = 0
+  }
+
   dispose(): void {
     this.cancel()
     this.running = false
