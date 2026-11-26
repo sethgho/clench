@@ -25,7 +25,7 @@ brew install binaryen                       # or your package manager's binaryen
 bun install
 bun run dev https://example.com/some-post   # builds the engine on first run
 bun run dev saved-page.html --wpm 450
-cat notes.md | bun run dev -
+cat notes.md | bun run dev - --type md
 ```
 
 To build a standalone executable for this machine, with the engine
@@ -50,8 +50,11 @@ older than 1.3.14 cannot run OpenTUI, and the scripts call the pinned one.
 ## Reading
 
 The reader opens on a ready screen with the title, byline, word count, an
-estimated reading time and a warning when the page could only be partly
-extracted. Space starts. While paused, the surrounding paragraph is shown
+estimated reading time, a "not read" line when the script leaves anything
+out (for example `not read: 15 code blocks (marked), 12 footnotes`; marked
+means a `[code]` or `[table]` marker is shown, unmarked means silently left
+out) and a warning when the page could only be partly extracted or is only a
+paper's abstract. Space starts. While paused, the surrounding paragraph is shown
 with the current word highlighted.
 
 | Key | Action |
@@ -64,10 +67,17 @@ with the current word highlighted.
 | `0`–`9` | jump to that tenth of the document |
 | `r` | restart |
 | `?` | help |
+| ctrl-z | suspend; `fg` resumes, paused on the same word |
 | `q`, ctrl-c | quit |
 
-`meatread <url | file | -> [--wpm <n>]`; `--help` and `--version` as
-usual. Code blocks and tables are not read word by word; they show as
+`meatread <url | file | -> [--wpm <n>] [--type <html|md|text|pdf>]`;
+`--help` and `--version` as usual. The type normally comes from the server's
+Content-Type or the file's extension (`.html`, `.md`, `.txt`, `.pdf`);
+standard input has neither, so it is read as plain text unless you say
+otherwise. `--type` overrides the detection for any input. Headings are drawn
+bold, and the guide lines thicken on the first word of a new block. After a
+jump, the finished screen shows the time spent reading but no overall rate.
+Code blocks and tables are not read word by word; they show as
 `[code]` and `[table]` markers, in a different style from the author's
 text. Colours come from the terminal's own palette and the background is
 never painted; `NO_COLOR` turns colour off.
@@ -113,6 +123,9 @@ rustdoc (`cargo doc --workspace --open`).
 - Pages that declare no charset and are not valid UTF-8 are read as
   windows-1252, the web's default; a page in another legacy encoding must
   declare it.
+- Right-to-left scripts (Arabic, Hebrew) are not laid out for reading: the
+  text before and after the pivot letter is drawn in logical order, so words
+  and their pivot alignment can look wrong.
 - Sentence detection is heuristic (abbreviations and initialisms can fool
   it), which affects sentence jumps and pauses.
 - Chinese, Japanese and Thai text is not segmented into words: each run
