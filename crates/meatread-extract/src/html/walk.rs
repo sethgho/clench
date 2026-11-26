@@ -327,12 +327,24 @@ fn code_lang(pre: &NodeRef) -> Option<String> {
     pre.attr("data-lang").map(|s| s.to_string())
 }
 
+/// A caption or credit has at most this many words.
+const CAPTION_MAX_WORDS: usize = 40;
+
 /// Image credits and captions rendered outside a `<figure>`.
+///
+/// A class naming a caption or credit is not enough on its own (utility
+/// classes such as `has-caption-styles` sit on whole article containers), so
+/// the element must also be short, hold no block-level children and be the
+/// sole text of its block.
 fn is_credit(n: &NodeRef) -> bool {
     has_class(n, |c| {
-        c.split(['-', '_'])
-            .any(|part| matches!(part, "credit" | "credits" | "caption"))
-    })
+        !["has-", "is-", "with-", "no-"]
+            .iter()
+            .any(|p| c.starts_with(p))
+            && c.split(['-', '_'])
+                .any(|part| matches!(part, "credit" | "credits" | "caption"))
+    }) && super::chrome::is_short_leaf(n, CAPTION_MAX_WORDS)
+        && super::chrome::owns_its_block(n)
 }
 
 fn is_footnote_ref(sup: &NodeRef) -> bool {

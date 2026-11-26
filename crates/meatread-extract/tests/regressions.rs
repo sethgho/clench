@@ -5,6 +5,7 @@
 mod common;
 
 use common::*;
+use meatread_core::BlockKind;
 use meatread_extract::extract_html;
 
 const URL: &str = "https://example.com/post";
@@ -135,4 +136,42 @@ fn readability_hook_classes_on_inline_text_do_not_remove_words() {
         "{}",
         reading_text(&doc)
     );
+}
+
+// --------------------------------------------------------- caption / credit
+
+#[test]
+fn a_container_with_a_caption_style_class_is_not_a_caption() {
+    let body = format!("<p>{FILLER}</p>").repeat(6);
+    let html = format!(
+        "<!doctype html><html><head><title>T</title></head><body>\
+<div class=\"entry-content has-caption-styles\"><h1>Title</h1>{body}</div></body></html>"
+    );
+    let doc = extract_html(&html, URL).expect("an article, not a caption");
+    assert!(doc.word_count > 100, "{}", doc.word_count);
+    assert!(doc.blocks.iter().all(|b| b.kind != BlockKind::Caption));
+}
+
+#[test]
+fn a_span_with_a_caption_class_in_running_text_keeps_its_words() {
+    let doc = html_doc(
+        "",
+        "<p>We saw a <span class=\"caption\">very large</span> bird land nearby.</p>",
+    );
+    assert!(reading_text(&doc).contains("We saw a very large bird land nearby."));
+}
+
+#[test]
+fn a_real_credit_line_is_still_a_skipped_caption() {
+    let doc = html_doc(
+        "",
+        "<p class=\"photo-credit\">Photo: Jane Doe</p><p>The article text continues here.</p>",
+    );
+    let credit = doc
+        .blocks
+        .iter()
+        .find(|b| b.text == "Photo: Jane Doe")
+        .expect("kept as a block");
+    assert_eq!(credit.kind, BlockKind::Caption);
+    assert!(credit.skip);
 }
