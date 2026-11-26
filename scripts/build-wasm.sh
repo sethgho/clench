@@ -8,7 +8,6 @@ set -eu
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 out="$root/crates/meatread-wasm/pkg"
-wasm="$root/target/wasm32-unknown-unknown/release/meatread_wasm.wasm"
 
 need() {
     command -v "$1" >/dev/null 2>&1 || {
@@ -29,7 +28,20 @@ if [ "$pinned" != "$installed" ]; then
 fi
 
 cd "$root"
+# Cargo's own answer, so CARGO_TARGET_DIR, build.target-dir and the default
+# agree with where the build below writes.
+target=$(cargo metadata --format-version 1 --no-deps | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')
+if [ -z "$target" ]; then
+    echo "build-wasm: could not determine cargo's target directory." >&2
+    exit 1
+fi
+wasm="$target/wasm32-unknown-unknown/release/meatread_wasm.wasm"
+
 cargo build -p meatread-wasm --target wasm32-unknown-unknown --release "$@"
+if [ ! -f "$wasm" ]; then
+    echo "build-wasm: expected $wasm after the build, but it does not exist." >&2
+    exit 1
+fi
 rm -rf "$out"
 wasm-bindgen --target web --out-dir "$out" --out-name meatread "$wasm"
 wasm-opt -Oz "$out/meatread_bg.wasm" -o "$out/meatread_bg.wasm"
