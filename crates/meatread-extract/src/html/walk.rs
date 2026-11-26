@@ -52,8 +52,14 @@ fn sel<'a>(n: &NodeRef<'a>, css: &str) -> Selection<'a> {
     Selection::from(*n).select(css)
 }
 
+/// Elements nested deeper than this are read as flat text instead of being
+/// walked, which bounds the walker's recursion however deep the tree is.
+/// Real pages stay far below it.
+const MAX_WALK_DEPTH: usize = 256;
+
 #[derive(Default)]
 struct Walker {
+    depth: usize,
     out: Vec<Block>,
     buf: String,
     notes: HashSet<String>,
@@ -105,6 +111,20 @@ impl Walker {
     }
 
     fn walk(&mut self, node: &NodeRef, ctx: Ctx) {
+        if self.depth >= MAX_WALK_DEPTH {
+            let text = node.text();
+            if !text.trim().is_empty() {
+                self.has_roman |= !ctx.italic;
+                self.buf.push_str(&text);
+            }
+            return;
+        }
+        self.depth += 1;
+        self.walk_children(node, ctx);
+        self.depth -= 1;
+    }
+
+    fn walk_children(&mut self, node: &NodeRef, ctx: Ctx) {
         for child in node.children() {
             if child.is_text() {
                 let text = child.text();

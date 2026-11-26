@@ -39,6 +39,9 @@ pub fn extract_markdown(md: &str, url: &str) -> Result<Document, ExtractError> {
         conv.event(event);
     }
     conv.flush();
+    if let Some(e) = conv.error.take() {
+        return Err(e);
+    }
 
     let mut blocks = conv.out;
     blocks.retain(|b| b.kind == BlockKind::Rule || !b.text.trim().is_empty());
@@ -80,6 +83,8 @@ struct Converter {
     image_depth: u32,
     /// The raw HTML block being collected, delivered line by line.
     html_block: Option<String>,
+    /// Set when a raw HTML block was too deeply nested to read.
+    error: Option<ExtractError>,
     in_metadata: bool,
     metadata: String,
     front_title: Option<String>,
@@ -302,7 +307,14 @@ impl Converter {
     /// A complete raw HTML block: its visible text as typed blocks.
     fn html_blocks(&mut self, raw: &str) {
         self.flush();
-        for mut b in fragment_blocks(raw) {
+        let blocks = match fragment_blocks(raw) {
+            Ok(blocks) => blocks,
+            Err(e) => {
+                self.error.get_or_insert(e);
+                return;
+            }
+        };
+        for mut b in blocks {
             b.quote = self.quote;
             if self.footnote && b.kind == BlockKind::Paragraph {
                 b.kind = BlockKind::Footnote;

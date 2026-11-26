@@ -455,3 +455,75 @@ fn a_visible_subscription_cut_marks_even_a_long_body_partial() {
     assert!(doc.word_count >= 400);
     assert!(doc.partial && doc.paywall_hint);
 }
+
+// --------------------------------------------------------- hostile nesting
+
+fn nested_page(open: &str, close: &str, depth: usize, middle: &str) -> String {
+    format!(
+        "<!doctype html><html><head><title>T</title></head><body><article><h1>T</h1>\
+<p>{FILLER} {FILLER}</p><p>{FILLER} {FILLER}</p>{}{middle}{}</article></body></html>",
+        open.repeat(depth),
+        close.repeat(depth)
+    )
+}
+
+#[test]
+fn absurd_nesting_is_refused_with_an_error_instead_of_overflowing() {
+    for (open, close, depth) in [
+        ("<span>", "</span>", 50_000),
+        ("<div>", "</div>", 50_000),
+        ("<li>item<ul>", "</ul></li>", 5_000),
+        ("<b>", "", 50_000),
+    ] {
+        let html = nested_page(open, close, depth, "<p>deep words</p>");
+        let err = extract_html(&html, URL).unwrap_err();
+        assert!(
+            matches!(err, ExtractError::TooDeeplyNested { .. }),
+            "{open:?}: {err:?}"
+        );
+        assert!(err.to_string().contains("levels deep"));
+        let err = extract(html.as_bytes(), Some("text/html"), URL).unwrap_err();
+        assert!(matches!(err, ExtractError::TooDeeplyNested { .. }));
+    }
+}
+
+#[test]
+fn deep_but_plausible_nesting_still_extracts_on_a_small_stack() {
+    let run = |open: &'static str, close: &'static str, depth: usize| {
+        let html = nested_page(open, close, depth, "<p>deep words stay</p>");
+        std::thread::Builder::new()
+            .stack_size(1 << 20)
+            .spawn(move || extract_html(&html, URL))
+            .unwrap()
+            .join()
+            .expect("no stack overflow")
+    };
+    for (open, close, depth) in [
+        ("<span>", "</span>", 2_400),
+        ("<div>", "</div>", 2_400),
+        ("<li>x<ul>", "</ul></li>", 1_200),
+    ] {
+        let doc = run(open, close, depth).unwrap();
+        assert!(reading_text(&doc).contains("deep words stay"), "{open}");
+    }
+}
+
+#[test]
+fn flat_runs_of_optional_end_tags_and_svg_paths_are_not_deep() {
+    let items: String = (0..5_000).map(|i| format!("<li>item number {i}")).collect();
+    let paths = "<path d=\"M0 0\"/>".repeat(5_000);
+    let html = nested_page("", "", 0, &format!("<ul>{items}</ul><svg>{paths}</svg>"));
+    let doc = extract_html(&html, URL).unwrap();
+    assert!(reading_text(&doc).contains("item number 4999"));
+}
+
+#[test]
+fn markdown_with_an_absurdly_nested_html_block_is_refused() {
+    let md = format!(
+        "{}x{}\n\nText.\n",
+        "<div>".repeat(50_000),
+        "</div>".repeat(50_000)
+    );
+    let err = extract(md.as_bytes(), Some("text/markdown"), "").unwrap_err();
+    assert!(matches!(err, ExtractError::TooDeeplyNested { .. }));
+}

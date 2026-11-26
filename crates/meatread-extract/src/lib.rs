@@ -79,6 +79,13 @@ pub enum ExtractError {
     FeatureDisabled(&'static str),
     /// The PDF could not be parsed or has no text layer. Holds the reason.
     Pdf(String),
+    /// The page nests elements so deeply that reading it risks exhausting
+    /// the stack or taking unbounded time; no real page does. `limit` is the
+    /// deepest nesting accepted.
+    TooDeeplyNested {
+        /// The deepest nesting accepted.
+        limit: usize,
+    },
 }
 
 impl fmt::Display for ExtractError {
@@ -90,6 +97,9 @@ impl fmt::Display for ExtractError {
                 write!(f, "support for this format needs the `{name}` feature")
             }
             ExtractError::Pdf(why) => write!(f, "could not read PDF: {why}"),
+            ExtractError::TooDeeplyNested { limit } => {
+                write!(f, "the page nests elements more than {limit} levels deep")
+            }
         }
     }
 }

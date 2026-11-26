@@ -14,6 +14,7 @@
 //!    their abstract, also flagged partial.
 
 mod chrome;
+mod depth;
 mod fallback;
 mod shield;
 mod trim;
@@ -44,6 +45,21 @@ const MIN_PAYWALLED_WORDS: usize = 400;
 const DECLARED_LONGER_NUM: usize = 3;
 const DECLARED_LONGER_DEN: usize = 2;
 
+/// Pages nested deeper than this many elements are refused. Real pages stay
+/// below a few hundred (browsers cap tree depth at 512); parsing time grows
+/// faster than linearly with depth.
+pub(crate) const MAX_NESTING_DEPTH: usize = 2_500;
+
+pub(crate) fn check_depth(html: &str) -> Result<(), ExtractError> {
+    if depth::max_depth(html, MAX_NESTING_DEPTH) > MAX_NESTING_DEPTH {
+        Err(ExtractError::TooDeeplyNested {
+            limit: MAX_NESTING_DEPTH,
+        })
+    } else {
+        Ok(())
+    }
+}
+
 /// Extracts a document from decoded HTML.
 ///
 /// `url` is recorded on the document and used to resolve relative links; it
@@ -52,8 +68,11 @@ const DECLARED_LONGER_DEN: usize = 2;
 /// # Errors
 ///
 /// [`ExtractError::NoContent`] if neither the page body, its structured data
-/// nor its meta description yields any text.
+/// nor its meta description yields any text, and
+/// [`ExtractError::TooDeeplyNested`] if the page nests elements more than
+/// 2,500 levels deep.
 pub fn extract_html(html: &str, url: &str) -> Result<Document, ExtractError> {
+    check_depth(html)?;
     let page = Dom::from(html);
     let mut doc = Document {
         url: url.to_string(),
@@ -177,13 +196,14 @@ fn abstract_replaces_body(doc: &Document, body_words: usize, abstract_blocks: &[
 /// detection or page-furniture trimming. Tags and attributes never reach the
 /// text; script and style content is dropped.
 #[cfg(feature = "markdown")]
-pub(crate) fn fragment_blocks(raw: &str) -> Vec<Block> {
+pub(crate) fn fragment_blocks(raw: &str) -> Result<Vec<Block>, ExtractError> {
+    check_depth(raw)?;
     let dom = Dom::from(raw);
     let body = dom.select("body");
-    match body.nodes().first() {
+    Ok(match body.nodes().first() {
         Some(root) => walk::blocks(root).blocks,
         None => Vec::new(),
-    }
+    })
 }
 
 /// Runs Readability, retrying without a base URL if the URL is unusable.

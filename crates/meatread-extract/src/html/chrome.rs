@@ -86,20 +86,24 @@ pub(super) fn is_furniture(n: &NodeRef) -> bool {
         return true;
     }
     let has_prefix = |p: &str| classes.iter().any(|c| c.starts_with(p));
-    if is_short_leaf(n, LABEL_MAX_WORDS)
-        && ((LABEL_PREFIXES.iter().any(|p| has_prefix(p)) && owns_its_block(n))
-            || (has_prefix(AMBIGUOUS_LABEL_PREFIX) && is_standalone_block(n)))
+    let label = LABEL_PREFIXES.iter().any(|p| has_prefix(p));
+    let ambiguous_label = has_prefix(AMBIGUOUS_LABEL_PREFIX);
+    let named = |v: &String| MODULE_NAMES.contains(&v.as_str());
+    let module = classes.iter().any(named)
+        || tokens("id").iter().any(named)
+        || tokens("data-area").iter().any(named);
+    // Most elements carry none of these names; the structural checks below
+    // walk the subtree or the ancestors, so they run only for those that do.
+    if !(label || ambiguous_label || module) {
+        return false;
+    }
+    if (label || ambiguous_label)
+        && is_short_leaf(n, LABEL_MAX_WORDS)
+        && ((label && owns_its_block(n)) || (ambiguous_label && is_standalone_block(n)))
     {
         return true;
     }
-    if !is_standalone_block(n) {
-        return false;
-    }
-    let named = |v: &String| MODULE_NAMES.contains(&v.as_str());
-    (classes.iter().any(named)
-        || tokens("id").iter().any(named)
-        || tokens("data-area").iter().any(named))
-        && !has_long_paragraph(n, MODULE_MAX_PARAGRAPH_WORDS)
+    module && is_standalone_block(n) && !has_long_paragraph(n, MODULE_MAX_PARAGRAPH_WORDS)
 }
 
 /// A block-level element that is not inside a paragraph.
