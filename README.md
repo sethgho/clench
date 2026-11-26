@@ -108,6 +108,11 @@ rustdoc (`cargo doc --workspace --open`).
   math and multi-column layouts can be garbled and end-of-line hyphens are
   kept as written. A PDF that crashes the extractor is reported as
   unreadable.
+- Pages nested more than 2,500 elements deep are refused rather than read;
+  real pages stay a few hundred levels deep.
+- Pages that declare no charset and are not valid UTF-8 are read as
+  windows-1252, the web's default; a page in another legacy encoding must
+  declare it.
 - Sentence detection is heuristic (abbreviations and initialisms can fool
   it), which affects sentence jumps and pauses.
 - Chinese, Japanese and Thai text is not segmented into words: each run

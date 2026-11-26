@@ -31,10 +31,13 @@
 //!
 //! [`Document::source`] says where the blocks came from. [`Document::partial`]
 //! is set whenever a reader could be misled into believing they have the
-//! whole article: the content came from a fallback (structured data or the
-//! meta description), the body is implausibly short, or the page looks
-//! paywalled and is short. [`Document::paywall_hint`] reports a paywall
-//! signal on its own.
+//! whole article: the content came from a fallback (structured data, citation
+//! abstract or the meta description), the body is implausibly short, or a
+//! visible paywall prompt is corroborated by a short body or a declared word
+//! count the body falls well short of. [`Document::paywall_hint`] reports a
+//! paywall signal on its own. [`Document::word_count`] counts the words the
+//! default reading policy plays; footnotes, captions, code and tables are
+//! not in it.
 //!
 //! ## Features
 //!
@@ -133,7 +136,8 @@ impl std::error::Error for ExtractError {}
 /// # Errors
 ///
 /// [`ExtractError::UnsupportedType`] for images and other binary types,
-/// [`ExtractError::NoContent`] when nothing readable remains, and
+/// [`ExtractError::NoContent`] when nothing readable remains,
+/// [`ExtractError::TooDeeplyNested`] for HTML nested absurdly deep, and
 /// [`ExtractError::Pdf`] or [`ExtractError::FeatureDisabled`] for PDFs.
 pub fn extract(
     bytes: &[u8],
