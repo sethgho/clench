@@ -394,3 +394,64 @@ fn markdown_title_falls_back_to_a_heading_then_the_file_name() {
     let doc = extract(b"Only words.\n", Some("text/markdown"), "").unwrap();
     assert_eq!(doc.title, "");
 }
+
+// ------------------------------------------------------------------ paywalls
+
+/// An article of roughly `paragraphs` x 30 words with `extra` appended to the
+/// page.
+fn long_page(paragraphs: usize, head: &str, extra: &str) -> meatread_core::Document {
+    let body: String = (0..paragraphs)
+        .map(|_| format!("<p>{FILLER}</p>"))
+        .collect();
+    let html = format!(
+        "<!doctype html><html><head><title>T</title>{head}</head><body><article><h1>T</h1>{body}{extra}</article></body></html>"
+    );
+    extract_html(&html, URL).unwrap()
+}
+
+#[test]
+fn an_empty_or_hidden_paywall_wrapper_does_not_make_a_full_article_partial() {
+    for extra in [
+        "<div class=\"paywall\"></div>",
+        "<div class=\"paywall\" hidden>Subscribe to read more</div>",
+        "<div style=\"display: none\"><div class=\"paywall\">Subscribe to read more</div></div>",
+        "<div class=\"paywall\" aria-hidden=\"true\">Subscribe to read more</div>",
+    ] {
+        let doc = long_page(12, "", extra);
+        assert!(
+            doc.word_count > 250 && doc.word_count < 400,
+            "{}",
+            doc.word_count
+        );
+        assert!(!doc.partial, "{extra}");
+        assert!(doc.paywall_hint, "{extra}: the signal is still reported");
+    }
+}
+
+#[test]
+fn a_visible_gate_corroborated_by_a_short_or_shorter_than_declared_body_is_partial() {
+    let gate = "<div class=\"paywall\"><p>Subscribe to keep reading.</p></div>";
+    let short = long_page(12, "", gate);
+    assert!(short.partial && short.paywall_hint);
+
+    let long_undeclared = long_page(20, "", gate);
+    assert!(long_undeclared.word_count >= 400);
+    assert!(!long_undeclared.partial);
+    assert!(long_undeclared.paywall_hint);
+
+    let declared =
+        "<script type=\"application/ld+json\">{\"@type\":\"Article\",\"wordCount\":2500}</script>";
+    let long_declared = long_page(20, declared, gate);
+    assert!(long_declared.partial && long_declared.paywall_hint);
+}
+
+#[test]
+fn a_visible_subscription_cut_marks_even_a_long_body_partial() {
+    let doc = long_page(
+        20,
+        "",
+        "<div class=\"post-access-cta\"><p>Subscribe to continue reading.</p></div>",
+    );
+    assert!(doc.word_count >= 400);
+    assert!(doc.partial && doc.paywall_hint);
+}

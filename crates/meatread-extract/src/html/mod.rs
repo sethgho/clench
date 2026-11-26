@@ -39,6 +39,11 @@ const ABSTRACT_BODY_FACTOR: usize = 2;
 /// A paywalled page whose body is shorter than this is treated as truncated.
 const MIN_PAYWALLED_WORDS: usize = 400;
 
+/// A page declaring more than 3/2 of the words extracted from it (structured
+/// data `wordCount`) is missing text.
+const DECLARED_LONGER_NUM: usize = 3;
+const DECLARED_LONGER_DEN: usize = 2;
+
 /// Extracts a document from decoded HTML.
 ///
 /// `url` is recorded on the document and used to resolve relative links; it
@@ -127,10 +132,16 @@ pub fn extract_html(html: &str, url: &str) -> Result<Document, ExtractError> {
     if doc.blocks.is_empty() || words == 0 {
         return Err(ExtractError::NoContent);
     }
+    // A body far shorter than the page says the article is.
+    let declared_longer = signals
+        .declared_words
+        .is_some_and(|d| d > words * DECLARED_LONGER_NUM / DECLARED_LONGER_DEN);
+    let short_for_a_gate = words < MIN_PAYWALLED_WORDS || declared_longer;
     doc.partial = doc.source != Source::Readability
         || words < MIN_ARTICLE_WORDS
-        || signals.gate
-        || (signals.structured && words < MIN_PAYWALLED_WORDS);
+        || signals.cut_gate
+        || (signals.shown_gate && short_for_a_gate)
+        || (signals.structured && short_for_a_gate);
     Ok(doc)
 }
 
