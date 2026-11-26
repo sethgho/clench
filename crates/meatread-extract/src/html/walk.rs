@@ -438,19 +438,21 @@ fn is_footnote_section(n: &NodeRef) -> bool {
         })
 }
 
-/// A figure that holds text structure of its own outside its caption. A
-/// paragraph that wraps the picture (which Readability makes out of picture
-/// containers) is part of the picture, not text.
+/// A figure that holds text structure of its own: a list, table, code or
+/// quote anywhere inside (outside its caption), or paragraphs and headings as
+/// direct children. A picture container nested in the figure is not text,
+/// even where Readability has turned it into a paragraph.
 fn is_wrapper_figure(figure: &NodeRef) -> bool {
-    sel(
-        figure,
-        "pre, blockquote, table, ul, ol, p, h1, h2, h3, h4, h5, h6, dl",
-    )
-    .nodes()
-    .iter()
-    .any(|n| {
-        !n.ancestors_it(None).any(|a| a.has_name("figcaption")) && !sel(n, "img, picture").exists()
-    })
+    let in_caption = |n: &NodeRef| n.ancestors_it(None).any(|a| a.has_name("figcaption"));
+    sel(figure, "pre, blockquote, table, ul, ol").exists()
+        || figure.children().iter().any(|c| {
+            c.is_element()
+                && ["p", "h1", "h2", "h3", "h4", "h5", "h6", "dl"]
+                    .iter()
+                    .any(|t| c.has_name(t))
+                && !in_caption(c)
+                && !sel(c, "img, picture").exists()
+        })
 }
 
 /// Distinguishes data tables from layout tables, as Readability does.
