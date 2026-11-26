@@ -25,7 +25,9 @@ use crate::script::{Pause, Token, TokenKind};
 ///
 /// The result is truncated to whole milliseconds. Markers are shown for
 /// `marker_ms` regardless of WPM. During ease-in (see [`Pacing::eased_ms`])
-/// word durations are stretched further.
+/// word durations are stretched further: over `ease_in_words` words after
+/// starting or resuming, and over the shorter `jump_ease_words` after a jump
+/// while playing.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(default))]
@@ -57,9 +59,13 @@ pub struct Pacing {
     pub heading_pause: u32,
     /// Fixed display time of a marker token, ms. Default 1500.
     pub marker_ms: u32,
-    /// Number of words that ramp up after starting, resuming or jumping.
-    /// `0` disables ease-in. Default 5.
+    /// Number of words that ramp up after starting or resuming playback.
+    /// `0` disables ease-in altogether, including after jumps. Default 5.
     pub ease_in_words: u32,
+    /// Number of words that ramp up after a jump (sentence, paragraph, step,
+    /// seek) made while playing, so repeated jumps stay responsive. Never
+    /// more than `ease_in_words`; `0` disables easing after jumps. Default 2.
+    pub jump_ease_words: u32,
     /// Duration multiplier, permille, for the first eased word; later eased
     /// words step linearly down toward 1000. Default 2000 (half speed).
     pub ease_in_start: u32,
@@ -82,6 +88,7 @@ impl Default for Pacing {
             heading_pause: 2500,
             marker_ms: 1500,
             ease_in_words: 5,
+            jump_ease_words: 2,
             ease_in_start: 2000,
         }
     }
@@ -131,16 +138,21 @@ impl Pacing {
     }
 
     /// `ms` stretched for the `step`-th token (0-based) since playback
-    /// started, resumed or jumped. Step `k < ease_in_words` is multiplied by
+    /// started or resumed. Step `k < ease_in_words` is multiplied by
     /// `ease_in_start - (ease_in_start - 1000) × k / ease_in_words` permille;
     /// later steps are unchanged.
     pub fn eased_ms(&self, ms: u32, step: u32) -> u32 {
-        if step >= self.ease_in_words || self.ease_in_start <= 1000 {
+        self.eased_ms_over(ms, step, self.ease_in_words)
+    }
+
+    /// Like [`Pacing::eased_ms`] with the ramp spread over `words` tokens
+    /// instead of `ease_in_words`.
+    pub fn eased_ms_over(&self, ms: u32, step: u32, words: u32) -> u32 {
+        if step >= words || self.ease_in_start <= 1000 {
             return ms;
         }
         let span = u64::from(self.ease_in_start - 1000);
-        let factor =
-            u64::from(self.ease_in_start) - span * u64::from(step) / u64::from(self.ease_in_words);
+        let factor = u64::from(self.ease_in_start) - span * u64::from(step) / u64::from(words);
         u32::try_from(u64::from(ms) * factor / 1000).unwrap_or(u32::MAX)
     }
 }

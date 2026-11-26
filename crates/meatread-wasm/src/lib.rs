@@ -123,6 +123,8 @@ export interface Pacing {
   heading_pause: number;
   marker_ms: number;
   ease_in_words: number;
+  /** Ease-in length after a jump made while playing. */
+  jump_ease_words: number;
   ease_in_start: number;
 }
 

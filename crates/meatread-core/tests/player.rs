@@ -390,3 +390,82 @@ fn script_survives_random_control_sequences() {
         assert!((100..=1500).contains(&f.wpm));
     }
 }
+
+#[test]
+fn jumping_while_playing_eases_in_over_the_short_jump_ramp() {
+    let mut p = player("a b c d e f g h i j k l");
+    let base = Pacing::default().base_ms();
+    p.play();
+    p.advance(2 * base + 1800 * base / 1000 + 1600 * base / 1000);
+    assert_eq!(p.index(), 3);
+
+    p.seek(5);
+    let mut shown = Vec::new();
+    for _ in 0..4 {
+        let ms = p.next_change_in().unwrap();
+        shown.push(ms);
+        p.advance(ms);
+    }
+    assert_eq!(shown, [2 * base, 1500 * base / 1000, base, base]);
+
+    // Resuming from a pause still gets the full ramp.
+    p.pause();
+    p.seek(1);
+    p.play();
+    let ramp: Vec<u32> = (0..6)
+        .map(|_| {
+            let ms = p.next_change_in().unwrap();
+            p.advance(ms);
+            ms
+        })
+        .collect();
+    assert_eq!(
+        ramp,
+        [
+            2 * base,
+            1800 * base / 1000,
+            1600 * base / 1000,
+            1400 * base / 1000,
+            1200 * base / 1000,
+            base
+        ]
+    );
+
+    let off = Pacing {
+        jump_ease_words: 0,
+        ..Pacing::default()
+    };
+    let mut p = Player::new(Script::new(&Document::from_plain_text("a b c d e f")), off);
+    p.play();
+    p.seek(3);
+    assert_eq!(p.next_change_in(), Some(base));
+}
+
+#[test]
+fn remaining_time_is_zero_exactly_when_finished() {
+    let mut p = player("one two three. Four five six.");
+    assert!(p.remaining_ms() > 0);
+    p.play();
+    let mut last_remaining = u64::MAX;
+    while p.state() == PlayState::Playing {
+        assert!(p.remaining_ms() > 0, "index {}", p.index());
+        assert!(p.remaining_ms() <= last_remaining);
+        assert!(p.remaining_ms() <= p.total_ms());
+        last_remaining = p.remaining_ms();
+        p.advance(7);
+    }
+    assert_eq!(p.state(), PlayState::Finished);
+    assert_eq!(p.remaining_ms(), 0);
+
+    // On the last word during ease-in, the stretched time still counts.
+    let mut p = player("one two three");
+    p.seek(2);
+    p.play();
+    let first = p.next_change_in().unwrap();
+    p.advance(first - 1);
+    assert_eq!(p.state(), PlayState::Playing);
+    assert_eq!(p.remaining_ms(), 1);
+    p.advance(1);
+    assert_eq!(p.state(), PlayState::Finished);
+    assert_eq!(p.remaining_ms(), 0);
+}

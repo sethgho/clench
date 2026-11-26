@@ -42,7 +42,7 @@ pub struct Frame<'a> {
     /// `index / total`, or `1.0` when finished or empty.
     pub progress: f32,
     /// Estimated time left at the current WPM, including the rest of the
-    /// current token, ms. Excludes ease-in.
+    /// current token, ms; see [`Player::remaining_ms`].
     pub remaining_ms: u64,
     /// Playback state.
     pub state: PlayState,
@@ -56,8 +56,10 @@ pub struct Frame<'a> {
 /// schedule.
 ///
 /// Any jump (step, seek, sentence or paragraph navigation) starts the target
-/// token fresh; while playing it also restarts ease-in. Jumping from
-/// [`PlayState::Finished`] leaves the player paused at the target.
+/// token fresh; while playing it also restarts a short ease-in over
+/// [`Pacing::jump_ease_words`] words, where starting or resuming eases in over
+/// the full [`Pacing::ease_in_words`]. Jumping from [`PlayState::Finished`]
+/// leaves the player paused at the target.
 #[derive(Debug, Clone)]
 pub struct Player {
     script: Script,
@@ -67,6 +69,7 @@ pub struct Player {
     state: PlayState,
     elapsed_ms: u32,
     ease_step: u32,
+    ease_len: u32,
     rewind_on_resume: bool,
 }
 
@@ -87,6 +90,7 @@ impl Player {
             state,
             elapsed_ms: 0,
             ease_step: 0,
+            ease_len: 0,
             rewind_on_resume: false,
         };
         player.retime();
@@ -164,6 +168,7 @@ impl Player {
         self.state = PlayState::Playing;
         self.elapsed_ms = 0;
         self.ease_step = 0;
+        self.ease_len = self.pacing.ease_in_words;
     }
 
     /// Pauses on the current token. When resumed, that token is shown for its
@@ -273,6 +278,7 @@ impl Player {
         self.index = target.min(self.script.len() - 1);
         self.elapsed_ms = 0;
         self.ease_step = 0;
+        self.ease_len = self.pacing.jump_ease_words.min(self.pacing.ease_in_words);
         if self.state == PlayState::Finished {
             self.state = PlayState::Paused;
         }
@@ -308,7 +314,7 @@ impl Player {
         if token.is_marker() {
             ms
         } else {
-            self.pacing.eased_ms(ms, self.ease_step)
+            self.pacing.eased_ms_over(ms, self.ease_step, self.ease_len)
         }
     }
 
@@ -353,13 +359,23 @@ impl Player {
         self.prefix_ms.last().copied().unwrap_or(0)
     }
 
-    /// Estimated time left at the current WPM, ms, excluding ease-in. `0`
-    /// when finished.
+    /// Estimated time left at the current WPM, ms, excluding ease-in. While
+    /// playing, the current token counts the fraction of its un-eased time
+    /// that is left of its (possibly stretched) display time, rounded up, so
+    /// the value never exceeds [`Player::total_ms`] and is `0` exactly when
+    /// the player is [`PlayState::Finished`].
     pub fn remaining_ms(&self) -> u64 {
-        if self.state == PlayState::Finished {
-            return 0;
+        match self.state {
+            PlayState::Finished => 0,
+            PlayState::Paused => self.total_ms() - self.prefix_ms[self.index],
+            PlayState::Playing => {
+                let after = self.total_ms() - self.prefix_ms[self.index + 1];
+                let plain = self.prefix_ms[self.index + 1] - self.prefix_ms[self.index];
+                let shown = u64::from(self.current_ms()).max(1);
+                let left = u64::from(self.current_ms().saturating_sub(self.elapsed_ms));
+                after + (plain * left).div_ceil(shown)
+            }
         }
-        (self.total_ms() - self.prefix_ms[self.index]).saturating_sub(u64::from(self.elapsed_ms))
     }
 
     /// A snapshot for rendering. Cheap: no allocation or scanning.

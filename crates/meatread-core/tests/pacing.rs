@@ -162,3 +162,37 @@ fn golden_schedule() {
     let got: Vec<(&str, u32)> = schedule.iter().map(|(t, ms)| (t.as_str(), *ms)).collect();
     assert_eq!(got, expected);
 }
+
+/// The schedule after a jump made while playing: a two-word ease-in instead
+/// of the five-word one used when starting.
+#[test]
+fn golden_jump_schedule() {
+    let doc = Document::from_plain_text("One two three. Four five six seven.");
+    let mut player = Player::new(Script::new(&doc), Pacing::default());
+    player.play();
+    let mut schedule = Vec::new();
+    for step in 0.. {
+        let Some(ms) = player.next_change_in() else {
+            break;
+        };
+        schedule.push((player.script().text(player.index()).to_string(), ms));
+        if step == 1 {
+            // Jump to the start of the second sentence mid-playback.
+            player.next_sentence();
+        } else {
+            player.advance(ms);
+        }
+    }
+    let got: Vec<(&str, u32)> = schedule.iter().map(|(t, ms)| (t.as_str(), *ms)).collect();
+    assert_eq!(
+        got,
+        [
+            ("One", 400),
+            ("two", 360),
+            ("Four", 400),
+            ("five", 300),
+            ("six", 200),
+            ("seven.", 600),
+        ]
+    );
+}
