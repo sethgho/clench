@@ -1,0 +1,208 @@
+{
+ "01-iankduncan": {
+  "start": "LLMs mostly amplify whoever is sitting at the keyboard.",
+  "end": "requires typing every character by hand.",
+  "must": [
+   "LLMs mostly amplify whoever is sitting at the keyboard"
+  ],
+  "junk": [
+   "Software engineer at Mercury",
+   "Keep reading",
+   "Borrowing at 17%",
+   "Engineering essays",
+   "All essays",
+   "8 min read",
+   "Cover: Jan Collaert"
+  ]
+ },
+ "02-news-arstechnica": {
+  "start": "About six months ago, Suvrat Raju",
+  "end": "has been a disaster for the humanities and social sciences.”)",
+  "must": [
+   "Take quantum mechanics."
+  ],
+  "junk": [
+   "Comments",
+   "Most Read",
+   "Credit: Aurich Lawson",
+   "Subscribe to Understanding AI",
+   "Ars Technica has been separating",
+   "Dan Kagan-Kans is a reporter",
+   "This story originally appeared"
+  ]
+ },
+ "03-substack-acx": {
+  "start": "He works in a very boring building",
+  "end": "those are the people you learn from!",
+  "must": [],
+  "junk": [
+   "Subscribe",
+   "Ready for more?",
+   "Restacks",
+   "Comments",
+   "Share"
+  ]
+ },
+ "04-ghost-404media": {
+  "start": "Google has filed for a patent",
+  "end": "",
+  "must": [],
+  "junk": [
+   "Advertisement",
+   "Sign in",
+   "Subscribe",
+   "Already have an account"
+  ]
+ },
+ "05-static-matklad": {
+  "start": "common knowledge that Rust code is slow to compile",
+  "end": "about 10 minutes of CI on GitHub actions.",
+  "must": [
+   "RUST_LOG=rust_analyzer=very complex filtering expression",
+   "cargo +nightly build -p rust-analyzer"
+  ],
+  "junk": [
+   "Sep 4, 2021"
+  ]
+ },
+ "06-wikipedia": {
+  "start": "Speed reading is any of many techniques",
+  "end": "",
+  "must": [
+   "Rapid serial visual presentation"
+  ],
+  "junk": [
+   "Jump to content",
+   "Main menu",
+   "From Wikipedia, the free encyclopedia",
+   "Retrieved from",
+   "Categories:",
+   "This article includes a list of general references",
+   "Articles with unsourced statements"
+  ]
+ },
+ "07-rustbook": {
+  "start": "Ownership is a set of rules that govern",
+  "end": "without transferring ownership: references.",
+  "must": [
+   "let s = String::from(\"hello\");"
+  ],
+  "junk": [
+   "Keyboard shortcuts",
+   "Press ? to show this help"
+  ]
+ },
+ "08-mdn": {
+  "start": "method of Array instances creates a new array",
+  "end": "access the map() method.",
+  "must": [
+   "const numbers = [1, 4, 9];"
+  ],
+  "junk": [
+   "Help improve MDN",
+   "Learn more",
+   "See full compatibility",
+   "This page was last modified",
+   "View this page on GitHub",
+   "Skip to main content"
+  ]
+ },
+ "09-github-readme": {
+  "start": "A standalone version of the readability library",
+  "end": "limitations under the License.",
+  "must": [
+   "npm install @mozilla/readability"
+  ],
+  "junk": [
+   "Sign in",
+   "Notifications",
+   "Footer navigation",
+   "Star",
+   "Fork",
+   "Releases",
+   "Contributors"
+  ]
+ },
+ "10-arxiv-abs": {
+  "start": "The dominant sequence transduction models",
+  "end": "large and limited training data.",
+  "must": [],
+  "junk": [
+   "arXivLabs",
+   "Which authors of this paper are endorsers",
+   "Disable MathJax",
+   "Bibliographic Tools",
+   "Submission history"
+  ]
+ },
+ "11-paulgraham": {
+  "start": "If you collected lists of techniques",
+  "end": "for suggestions and for reading drafts.",
+  "must": [
+   "Notes"
+  ],
+  "junk": []
+ },
+ "12-recipe-allrecipes": {
+  "start": "A generous batch makes this recipe",
+  "end": "",
+  "must": [
+   "Preheat the oven to 350",
+   "semisweet chocolate chips"
+  ],
+  "junk": [
+   "Get the App",
+   "Something went wrong",
+   "Newsletter",
+   "home cooks made it",
+   "Add Photo",
+   "Nutrition Facts"
+  ]
+ },
+ "13-hn-thread": {
+  "start": "I have a few qualms with this app",
+  "end": "Great job by the way.",
+  "must": [],
+  "junk": [
+   "Guidelines | FAQ",
+   "new | past | comments",
+   "Apply to YC",
+   "Search:"
+  ]
+ },
+ "14-nonenglish-spiegel": {
+  "start": "hat beim EU-Gipfel in Brüssel den Kompromissvorschlag",
+  "end": "Ein Gipfel im Oktober hatte keine Ergebnisse gebracht.",
+  "must": [
+   "Die EU wird sich nicht über den nächsten mehrjährigen Finanzrahmen einig"
+  ],
+  "junk": [
+   "Mehr zum Thema",
+   "Zur Merkliste hinzufügen",
+   "Anzeige",
+   "Impressum"
+  ]
+ },
+ "15-spa-bsky": {
+  "start": "Bluesky is an open social network",
+  "end": "",
+  "must": [],
+  "junk": [
+   "<div",
+   "Enable JavaScript"
+  ]
+ },
+ "16-news-bbc": {
+  "start": "Egyptian authorities have arrested a man",
+  "end": "thousands of road deaths a year.",
+  "must": [],
+  "junk": [
+   "Getty Images",
+   "Add as preferred on Google",
+   "Related",
+   "hours ago",
+   "Share",
+   "Save"
+  ]
+ }
+}
