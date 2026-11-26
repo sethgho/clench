@@ -63,6 +63,25 @@ describe("extract", () => {
     expect(() => extract(new TextEncoder().encode("%PDF-1.4 garbage"), "application/pdf", "")).toThrow(/PDF/)
   })
 
+  const nested = (open: string, close: string, depth: number) =>
+    new TextEncoder().encode(
+      `<!doctype html><html><head><title>T</title></head><body><article><h1>T</h1>` +
+        `<p>${"word ".repeat(120)}</p><p>${"more ".repeat(120)}</p>` +
+        `${open.repeat(depth)}<p>deep words stay</p>${close.repeat(depth)}</article></body></html>`,
+    )
+
+  test("hostile nesting is an error, and the instance stays usable", () => {
+    for (const [open, close, depth] of [
+      ["<span>", "</span>", 50_000],
+      ["<li>x<ul>", "</ul></li>", 5_000],
+    ] as const) {
+      expect(() => extract(nested(open, close, depth), "text/html", "")).toThrow(/levels deep/)
+    }
+    const doc = extract(nested("<div>", "</div>", 2_400), "text/html", "")
+    expect(doc.blocks.some((b) => b.text === "deep words stay")).toBe(true)
+    expect(extractFixture("01-iankduncan.html").word_count).toBe(1815)
+  })
+
   test("reports its version", () => {
     expect(version()).toMatch(/^\d+\.\d+\.\d+$/)
   })
@@ -175,6 +194,26 @@ describe("Session", () => {
     expect(f.before + f.pivot + f.after).toBe("[code]")
     expect(s.context()!.token).toContain("let x = 1;")
     expect(s.wordCount).toBe(3)
+  })
+
+  test("omitted() totals what the script does not read", () => {
+    const md = "Intro words.\n\n```\nlet x = 1;\n```\n\nOutro.[^1]\n\n[^1]: A footnote of five words."
+    const s = new Session(extract(new TextEncoder().encode(md), "text/markdown", ""))
+    expect(s.omitted()).toEqual([
+      { kind: "code", marked: 1, marked_words: 4, skipped: 0, skipped_words: 0 },
+      { kind: "footnote", marked: 0, marked_words: 0, skipped: 1, skipped_words: 5 },
+    ])
+    expect(new Session(plain()).omitted()).toEqual([])
+  })
+
+  test("jumping while playing eases over the short ramp", () => {
+    const s = new Session(plain(), { wpm: 300 })
+    s.play()
+    s.nextSentence()
+    const base = 200
+    expect(s.nextChangeIn()).toBe(2 * base)
+    s.advance(2 * base)
+    expect(s.nextChangeIn()).toBe(1.5 * base)
   })
 
   test("non-ASCII context survives the UTF-16 boundary", () => {
