@@ -178,7 +178,9 @@ pub struct Document {
     /// The page looked paywalled.
     #[cfg_attr(feature = "serde", serde(default))]
     pub paywall_hint: bool,
-    /// Whitespace-delimited word count of the content.
+    /// Number of words a reader plays by default: the words of the blocks
+    /// that [`ReadPolicy::default`](crate::ReadPolicy) reads. Code, tables,
+    /// figures, captions, footnotes and rules are not counted.
     #[cfg_attr(feature = "serde", serde(default))]
     pub word_count: usize,
     /// The content, in reading order.
@@ -187,13 +189,10 @@ pub struct Document {
 }
 
 impl Document {
-    /// A document holding `blocks`, with `word_count` computed from them and
-    /// all other metadata empty.
+    /// A document holding `blocks`, with `word_count` computed from them (see
+    /// [`Document::word_count`]) and all other metadata empty.
     pub fn from_blocks(blocks: Vec<Block>) -> Document {
-        let word_count = blocks
-            .iter()
-            .map(|b| crate::text::words(&b.text).count())
-            .sum();
+        let word_count = crate::ReadPolicy::default().word_count(&blocks);
         Document {
             word_count,
             blocks,

@@ -266,3 +266,41 @@ fn utf8_cut_off_mid_character_is_still_utf8() {
     let doc = extract(&bytes, Some("text/html"), URL).unwrap();
     assert!(reading_text(&doc).contains("Café naïve 你好"));
 }
+
+// ----------------------------------------------------------------- footnotes
+
+#[test]
+fn word_count_and_partial_ignore_footnotes_the_reader_skips() {
+    let notes: String = (1..=12)
+        .map(|n| format!("<li id=\"fn{n}\">Note {n}: {FILLER}</li>"))
+        .collect();
+    let html = format!(
+        "<!doctype html><html><head><title>T</title></head><body><article><h1>T</h1>\
+<p>{FILLER}</p><p>{FILLER}</p><ol class=\"footnotes\">{notes}</ol></article></body></html>"
+    );
+    let doc = extract_html(&html, URL).unwrap();
+    assert!(doc.blocks.iter().any(|b| b.kind == BlockKind::Footnote));
+    let played: usize = meatread_core::Script::new(&doc)
+        .tokens()
+        .iter()
+        .filter(|t| !t.joined && !t.is_marker())
+        .count();
+    assert_eq!(doc.word_count, played);
+    assert!(doc.word_count < 80, "{}", doc.word_count);
+    assert!(
+        doc.partial,
+        "the readable body is too short to be the article"
+    );
+}
+
+#[test]
+fn markdown_word_count_matches_what_the_reader_plays() {
+    let doc = extract(
+        b"# T\n\nBody text here[^1] and more.\n\n[^1]: A long footnote with many words in it.\n",
+        Some("text/markdown"),
+        "",
+    )
+    .unwrap();
+    let played = meatread_core::Script::new(&doc).tokens().len();
+    assert_eq!(doc.word_count, played);
+}

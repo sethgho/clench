@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use meatread_core::{Block, BlockKind, Document};
+use meatread_core::{Block, BlockAction, BlockKind, Document, ReadPolicy};
 use meatread_extract::extract;
 
 pub const FIXTURES: [&str; 16] = [
@@ -49,8 +49,12 @@ pub fn load(name: &str) -> Document {
     .unwrap_or_else(|e| panic!("{name}: {e}"))
 }
 
+/// The blocks a reader plays under the default policy.
 pub fn readable(doc: &Document) -> impl Iterator<Item = &Block> {
-    doc.blocks.iter().filter(|b| !b.skip)
+    let policy = ReadPolicy::default();
+    doc.blocks
+        .iter()
+        .filter(move |b| policy.resolve(b) == BlockAction::Read)
 }
 
 pub fn of_kind(doc: &Document, kind: BlockKind) -> Vec<&Block> {

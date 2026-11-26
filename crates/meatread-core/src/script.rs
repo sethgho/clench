@@ -3,7 +3,7 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::document::{BlockKind, Document};
+use crate::document::{Block, BlockKind, Document};
 use crate::text::{self, Ending};
 
 /// What the script builder does with a block of a given kind.
@@ -74,6 +74,29 @@ impl Default for ReadPolicy {
 }
 
 impl ReadPolicy {
+    /// What happens to `block`: its kind's action, except that a block the
+    /// extractor flagged [`Block::skip`] is skipped instead of read when
+    /// [`ReadPolicy::honor_skip_hint`] is set.
+    pub fn resolve(&self, block: &Block) -> BlockAction {
+        match self.action(block.kind) {
+            BlockAction::Read if block.skip && self.honor_skip_hint => BlockAction::Skip,
+            action => action,
+        }
+    }
+
+    /// Number of words a script built with this policy reads from `blocks`:
+    /// the words of every block that resolves to [`BlockAction::Read`].
+    /// Marked and skipped blocks contribute none. Counts words as the
+    /// tokenizer splits them, so it equals the script's number of word
+    /// tokens that do not continue a split long word.
+    pub fn word_count(&self, blocks: &[Block]) -> usize {
+        blocks
+            .iter()
+            .filter(|b| self.resolve(b) == BlockAction::Read)
+            .map(|b| text::words(&b.text).count())
+            .sum()
+    }
+
     /// The configured action for `kind`.
     pub fn action(&self, kind: BlockKind) -> BlockAction {
         *self.slot(kind)
@@ -274,11 +297,7 @@ impl Script {
     pub fn with_options(doc: &Document, options: &ScriptOptions) -> Script {
         let mut script = Script::default();
         for (index, block) in doc.blocks.iter().enumerate() {
-            let mut action = options.policy.action(block.kind);
-            if action == BlockAction::Read && block.skip && options.policy.honor_skip_hint {
-                action = BlockAction::Skip;
-            }
-            match action {
+            match options.policy.resolve(block) {
                 BlockAction::Skip => {}
                 BlockAction::Mark => script.push_marker(index, block.kind, &block.text),
                 BlockAction::Read => {

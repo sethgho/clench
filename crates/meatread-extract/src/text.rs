@@ -1,6 +1,6 @@
 //! Whitespace handling shared by every extractor.
 
-use meatread_core::{Block, BlockKind};
+use meatread_core::{Block, BlockKind, ReadPolicy};
 
 /// HTML's definition of white space: space, tab, line feed, form feed and
 /// carriage return. Notably this excludes U+00A0 and every other Unicode
@@ -33,16 +33,13 @@ pub(crate) fn word_count(s: &str) -> usize {
     s.split(is_word_separator).filter(|w| !w.is_empty()).count()
 }
 
-/// Words in the blocks a reader plays by default (those not flagged `skip`).
+/// Words in the blocks a reader plays under the default reading policy, the
+/// same policy [`meatread_core::Script::new`] applies.
 pub(crate) fn readable_words(blocks: &[Block]) -> usize {
-    blocks
-        .iter()
-        .filter(|b| !b.skip)
-        .map(|b| word_count(&b.text))
-        .sum()
+    ReadPolicy::default().word_count(blocks)
 }
 
-/// Whether blocks of `kind` are skipped by default.
+/// Whether blocks of `kind` are hinted to be skipped by default.
 pub(crate) fn skipped_by_default(kind: BlockKind) -> bool {
     matches!(
         kind,

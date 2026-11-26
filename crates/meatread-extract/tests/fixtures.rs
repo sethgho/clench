@@ -69,7 +69,7 @@ const EXPECT: [Expect; 16] = [
         source: Source::Readability,
         partial: false,
         paywall_hint: false,
-        words: 3026,
+        words: 2404,
         gap: "",
     },
     Expect {

@@ -445,3 +445,35 @@ fn plain_text_documents() {
     assert_eq!(doc.source, meatread_core::Source::PlainText);
     assert!(Document::from_plain_text("").blocks.is_empty());
 }
+
+#[test]
+fn policy_word_count_matches_the_script_a_reader_plays() {
+    let mut hinted = Block::paragraph("hinted away words");
+    hinted.skip = true;
+    let doc = Document::from_blocks(vec![
+        Block::heading(1, "A title"),
+        Block::paragraph("Three plain words."),
+        hinted,
+        Block::new(BlockKind::Footnote, "a footnote with five words"),
+        Block::new(BlockKind::Code, "fn main() {}"),
+        Block::new(BlockKind::Caption, "a caption"),
+    ]);
+    let policy = ReadPolicy::default();
+    assert_eq!(policy.resolve(&doc.blocks[2]), BlockAction::Skip);
+    assert_eq!(policy.resolve(&doc.blocks[3]), BlockAction::Skip);
+    assert_eq!(policy.resolve(&doc.blocks[4]), BlockAction::Mark);
+    assert_eq!(doc.word_count, 5);
+    let played = Script::new(&doc)
+        .tokens()
+        .iter()
+        .filter(|t| t.kind == TokenKind::Word && !t.joined)
+        .count();
+    assert_eq!(policy.word_count(&doc.blocks), played);
+
+    let all = ReadPolicy {
+        footnote: BlockAction::Read,
+        honor_skip_hint: false,
+        ..ReadPolicy::default()
+    };
+    assert_eq!(all.word_count(&doc.blocks), 5 + 3 + 5);
+}
