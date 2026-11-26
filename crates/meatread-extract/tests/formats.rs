@@ -109,11 +109,12 @@ fn utf8_bom_beats_a_wrong_header_and_utf16_is_decoded() {
 }
 
 #[test]
-fn undeclared_pages_are_utf8_and_invalid_bytes_are_replaced() {
+fn undeclared_pages_are_utf8_and_declared_utf8_replaces_invalid_bytes() {
     let html = page("<title>Plain</title>", "Ren\u{e9}e \u{4f60}\u{597d}");
     let doc = extract(html.as_bytes(), None, URL).unwrap();
     assert!(all_text(&doc).contains("Renée 你好"));
 
+    let html = page("<meta charset=\"utf-8\"><title>Plain</title>", "Ren\u{e9}e");
     let mut bytes = html.into_bytes();
     let at = bytes.windows(3).position(|w| w == b"The").unwrap();
     bytes[at] = 0xff;

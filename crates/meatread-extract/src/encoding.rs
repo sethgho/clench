@@ -2,10 +2,12 @@
 //!
 //! The charset comes from, in order: a byte order mark, the `charset`
 //! parameter of the Content-Type header, and (for HTML) a `<meta>` tag near
-//! the top of the document. Anything else is read as UTF-8, with invalid
-//! sequences replaced by U+FFFD.
+//! the top of the document. With nothing declared, bytes that are valid UTF-8
+//! are read as UTF-8 and anything else as windows-1252, the WHATWG Encoding
+//! Standard's default for most locales. A declared charset is always obeyed;
+//! invalid sequences in it are replaced by U+FFFD.
 
-use encoding_rs::{Encoding, UTF_8};
+use encoding_rs::{Encoding, UTF_8, WINDOWS_1252};
 
 /// How far into an HTML document a `<meta>` charset declaration is looked for.
 const META_PRESCAN_BYTES: usize = 4096;
@@ -76,9 +78,20 @@ fn label_to_encoding(label: &str) -> Option<&'static Encoding> {
     }
 }
 
+/// The encoding to assume when none is declared: UTF-8 if the bytes are
+/// UTF-8 (a sequence cut off at the very end, as by a size limit, does not
+/// count against it), windows-1252 otherwise.
+fn undeclared(bytes: &[u8]) -> &'static Encoding {
+    match std::str::from_utf8(bytes) {
+        Ok(_) => UTF_8,
+        Err(e) if e.error_len().is_none() => UTF_8,
+        Err(_) => WINDOWS_1252,
+    }
+}
+
 /// Decodes a non-HTML body (Markdown, plain text).
 pub(crate) fn decode_text(bytes: &[u8], content_type: Option<&str>) -> String {
-    let enc = header_charset(content_type).unwrap_or(UTF_8);
+    let enc = header_charset(content_type).unwrap_or_else(|| undeclared(bytes));
     // `decode` lets a byte order mark override `enc`.
     enc.decode(bytes).0.into_owned()
 }
@@ -87,6 +100,6 @@ pub(crate) fn decode_text(bytes: &[u8], content_type: Option<&str>) -> String {
 pub(crate) fn decode_html(bytes: &[u8], content_type: Option<&str>) -> String {
     let enc = header_charset(content_type)
         .or_else(|| meta_charset(bytes))
-        .unwrap_or(UTF_8);
+        .unwrap_or_else(|| undeclared(bytes));
     enc.decode(bytes).0.into_owned()
 }

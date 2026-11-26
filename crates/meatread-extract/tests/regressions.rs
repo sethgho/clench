@@ -234,3 +234,35 @@ fn pdf_magic_at_the_start_is_still_detected() {
         assert!(matches!(err, ExtractError::Pdf(_)), "{prefix:?}: {err:?}");
     }
 }
+
+// ----------------------------------------------------------------- encodings
+
+#[test]
+fn undeclared_non_utf8_bytes_are_read_as_windows_1252() {
+    let html = article_page(
+        "",
+        "<p>Caf\u{e9} na\u{ef}ve and caf\u{e9} again for good measure here.</p>",
+    );
+    // Latin-1 range characters are the same single bytes in windows-1252.
+    let bytes: Vec<u8> = html.chars().map(|c| c as u32 as u8).collect();
+    assert!(std::str::from_utf8(&bytes).is_err());
+    let doc = extract(&bytes, Some("text/html"), URL).unwrap();
+    let text = reading_text(&doc);
+    assert!(text.contains("Café naïve"), "{text}");
+    assert!(!text.contains('\u{fffd}'));
+
+    let doc = extract(&bytes, None, URL).unwrap();
+    assert!(reading_text(&doc).contains("Café naïve"));
+}
+
+#[test]
+fn utf8_cut_off_mid_character_is_still_utf8() {
+    let html = article_page(
+        "",
+        "<p>Caf\u{e9} na\u{ef}ve \u{4f60}\u{597d} and the rest of this line.</p>",
+    );
+    let mut bytes = html.into_bytes();
+    bytes.extend_from_slice(&"\u{4f60}".as_bytes()[..2]);
+    let doc = extract(&bytes, Some("text/html"), URL).unwrap();
+    assert!(reading_text(&doc).contains("Café naïve 你好"));
+}

@@ -106,7 +106,9 @@ impl std::error::Error for ExtractError {}
 ///
 /// `content_type` is the raw header value and may carry a `charset`
 /// parameter; the text is decoded accordingly (a byte order mark overrides
-/// the header, and HTML falls back to its `<meta>` declaration, then UTF-8).
+/// the header, and HTML falls back to its `<meta>` declaration). With no
+/// charset declared, valid UTF-8 is read as UTF-8 and other bytes as
+/// windows-1252.
 /// `url` is recorded on the document and resolves relative links; it may be
 /// empty.
 ///
