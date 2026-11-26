@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use dom_smoothie::dom_query::NodeRef;
 use meatread_core::{Block, BlockKind};
 
-use crate::text::word_count;
+use crate::text::{collapse, word_count};
 
 /// Class-token prefixes of labels that sit above a headline ("kicker").
 const LABEL_PREFIXES: &[&str] = &["kicker", "eyebrow", "overline", "upper-deck"];
@@ -69,15 +69,40 @@ pub(super) fn is_furniture(n: &NodeRef) -> bool {
         || tokens("data-area").iter().any(named)
 }
 
-/// A `<time>` that stands alone among its siblings is a dateline, which is
-/// page metadata rather than prose.
+/// Elements that flow within a line of text. Anything else starts a new block.
+const INLINE_ELEMENTS: &[&str] = &[
+    "a", "abbr", "b", "bdi", "bdo", "cite", "code", "data", "del", "dfn", "em", "font", "i", "ins",
+    "kbd", "label", "mark", "q", "s", "samp", "small", "span", "strike", "strong", "sub", "sup",
+    "time", "tt", "u", "var",
+];
+
+pub(super) fn is_inline_element(n: &NodeRef) -> bool {
+    n.node_name()
+        .is_some_and(|name| INLINE_ELEMENTS.contains(&name.to_ascii_lowercase().as_str()))
+}
+
+/// The nearest block-level element containing `n` (`n` itself if it is one).
+pub(super) fn block_container<'a>(n: &NodeRef<'a>) -> NodeRef<'a> {
+    let mut cur = *n;
+    while cur.is_element() && is_inline_element(&cur) {
+        match cur.parent() {
+            Some(p) if p.is_element() => cur = p,
+            _ => break,
+        }
+    }
+    cur
+}
+
+/// Whether `n` holds all the text of its block: a bare label rather than
+/// part of a sentence.
+pub(super) fn owns_its_block(n: &NodeRef) -> bool {
+    collapse(&block_container(n).text()) == collapse(&n.text())
+}
+
+/// A `<time>` that is the only text of its block is a dateline, which is page
+/// metadata rather than prose. A `<time>` inside a sentence is part of it.
 pub(super) fn is_standalone_time(n: &NodeRef) -> bool {
-    n.has_name("time")
-        && n.parent().is_some_and(|p| {
-            p.children()
-                .iter()
-                .all(|c| !c.is_text() || c.text().trim().is_empty())
-        })
+    n.has_name("time") && owns_its_block(n)
 }
 
 /// Characters that, alone in a block, are decoration rather than text.

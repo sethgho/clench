@@ -62,3 +62,27 @@ fn an_italic_linked_closing_promo_is_still_trimmed() {
         "The last real sentence of the article stands here."
     );
 }
+
+// ------------------------------------------------------------------- <time>
+
+#[test]
+fn a_time_element_inside_a_sentence_keeps_its_text() {
+    let doc = html_doc(
+        "",
+        "<p>The deadline was <strong><time datetime=\"2026-03-01\">March 1st</time></strong>, and we missed it.</p>",
+    );
+    assert!(
+        texts(&doc).contains(&"The deadline was March 1st, and we missed it.".to_string()),
+        "{:?}",
+        texts(&doc)
+    );
+}
+
+#[test]
+fn a_lone_dateline_is_still_dropped() {
+    let doc = html_doc(
+        "",
+        "<div class=\"meta\"><span><time datetime=\"2026-03-01\">March 1, 2026</time></span></div>",
+    );
+    assert!(!reading_text(&doc).contains("March 1, 2026"));
+}

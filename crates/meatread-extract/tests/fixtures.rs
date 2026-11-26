@@ -53,8 +53,8 @@ const EXPECT: [Expect; 16] = [
         source: Source::Readability,
         partial: true,
         paywall_hint: true,
-        words: 71,
-        gap: "paywalled: the HTML holds only the teaser, so the body is flagged partial instead of fixed; a leading tag label (\"AI\") is kept",
+        words: 78,
+        gap: "paywalled: the HTML holds only the teaser, so the body is flagged partial instead of fixed; a leading tag label (\"AI\") and the byline's date (\"· Nov 23, 2026 at 1:17 PM\") are kept",
     },
     Expect {
         name: "05-static-matklad",
