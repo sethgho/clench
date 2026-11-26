@@ -19,13 +19,19 @@
 //!
 //! ## Crashes
 //!
-//! Release builds abort on panic, which traps the WebAssembly instance and
-//! leaves its memory in an unknown state. A panic hook turns the panic into
-//! a thrown `Error` whose message starts with `meatread engine crashed:` and
-//! marks the instance as crashed; afterwards `extract` and `new Session`
-//! throw at once. A host that sees such an error (or a
-//! `WebAssembly.RuntimeError`) must not keep using that instance and should
-//! load a fresh one if it needs to continue.
+//! Release builds abort on panic, which leaves the instance's memory in an
+//! unknown state. A panic hook turns the panic into a thrown `Error` whose
+//! message starts with `meatread engine crashed:` and marks the instance as
+//! crashed; afterwards `extract` and `new Session` throw at once. Methods of
+//! a `Session` that already exists are not guarded.
+//!
+//! Only a panic can be detected from Rust. Any other trap (stack exhaustion,
+//! an out-of-bounds access, an abort) surfaces in JavaScript as a
+//! `WebAssembly.RuntimeError` and runs no Rust code afterwards, so nothing
+//! can mark the instance: later calls into it have undefined results. A host
+//! must treat both a `WebAssembly.RuntimeError` and an error starting with
+//! `meatread engine crashed:` as fatal for that instance, drop it (and its
+//! sessions) and load a fresh instance if it needs to continue.
 //!
 //! ## Features
 //!
@@ -156,6 +162,19 @@ export interface Frame {
   remaining_ms: number;
   state: PlayState;
   wpm: number;
+}
+
+/** What a session leaves out for one block kind. */
+export interface Omitted {
+  kind: BlockKind;
+  /** Blocks shown as a single marker such as `[code]`. */
+  marked: number;
+  /** Words inside the marked blocks. */
+  marked_words: number;
+  /** Blocks left out without a trace. */
+  skipped: number;
+  /** Words inside the skipped blocks. */
+  skipped_words: number;
 }
 
 /** The current token's block, split around the token. */
@@ -356,6 +375,13 @@ impl Session {
     #[wasm_bindgen(unchecked_return_type = "Frame")]
     pub fn frame(&self) -> Result<JsValue, JsError> {
         to_js(&self.player.frame())
+    }
+
+    /// What the session leaves out, one entry per block kind that had any
+    /// marked or silently skipped blocks (see `Omitted`).
+    #[wasm_bindgen(unchecked_return_type = "Omitted[]")]
+    pub fn omitted(&self) -> Result<JsValue, JsError> {
+        to_js(&self.player.script().omitted())
     }
 
     /// The current word's block, for a pause view; `undefined` if the

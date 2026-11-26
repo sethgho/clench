@@ -120,6 +120,22 @@ mod tests {
     }
 
     #[test]
+    fn omitted_serializes_as_plain_data() {
+        let player = build_player(&doc(), &Settings::default());
+        let json = serde_json::to_value(player.script().omitted()).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!([{
+                "kind": "code",
+                "marked": 1,
+                "marked_words": 3,
+                "skipped": 0,
+                "skipped_words": 0
+            }])
+        );
+    }
+
+    #[test]
     fn context_view_splits_around_the_token() {
         let mut player = build_player(&doc(), &Settings::default());
         player.seek(2);

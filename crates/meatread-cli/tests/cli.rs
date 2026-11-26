@@ -62,6 +62,32 @@ fn script_prints_schedule_and_summary() {
 }
 
 #[test]
+fn script_summary_reports_what_is_not_read() {
+    let path = fixture("07-rustbook.html");
+    let out = stdout(&run(&["script", path.to_str().unwrap()]));
+    let last = out.lines().last().unwrap();
+    let (_, omitted) = last.split_once("; not read: ").expect(last);
+    assert!(omitted.contains(" code marked ("), "{omitted}");
+    assert!(omitted.contains(" words)"), "{omitted}");
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_meatread"))
+        .args(["script", "-", "--content-type", "text/plain"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    use std::io::Write;
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(b"Just plain words here.\n")
+        .unwrap();
+    let plain = stdout(&child.wait_with_output().unwrap());
+    assert!(!plain.contains("not read"), "{plain}");
+}
+
+#[test]
 fn pdf_and_stdin_inputs_work() {
     let pdf = fixture("attention.pdf");
     let out = stdout(&run(&["extract", pdf.to_str().unwrap()]));

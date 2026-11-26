@@ -119,15 +119,37 @@ pub fn schedule(script: &Script, pacing: &Pacing) -> String {
     out
 }
 
-/// The closing summary line of `script`.
+/// The closing summary line of `script`: size, estimated time, and what the
+/// script leaves out ("not read: 12 code marked (310 words), 5 caption
+/// skipped (60 words)").
 pub fn summary(player: &Player) -> String {
     let total = player.total_ms();
     let secs = total / 1000;
-    format!(
+    let mut line = format!(
         "{} tokens at {} wpm: estimated reading time {}m{:02}s",
         player.script().len(),
         player.wpm(),
         secs / 60,
         secs % 60
-    )
+    );
+    let mut parts = Vec::new();
+    for o in player.script().omitted() {
+        let name = kind_name(o.kind);
+        if o.marked > 0 {
+            parts.push(format!(
+                "{} {name} marked ({} words)",
+                o.marked, o.marked_words
+            ));
+        }
+        if o.skipped > 0 {
+            parts.push(format!(
+                "{} {name} skipped ({} words)",
+                o.skipped, o.skipped_words
+            ));
+        }
+    }
+    if !parts.is_empty() {
+        let _ = write!(line, "; not read: {}", parts.join(", "));
+    }
+    line
 }
