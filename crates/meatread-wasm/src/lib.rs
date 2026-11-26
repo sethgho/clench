@@ -53,8 +53,8 @@ export type BlockKind =
 
 /** Where a document's content came from. */
 export type Source =
-  | "readability" | "json_ld" | "meta_description" | "plain_text"
-  | "markdown" | "pdf" | "none";
+  | "readability" | "json_ld" | "meta_description" | "citation_abstract"
+  | "plain_text" | "markdown" | "pdf" | "none";
 
 /** One structural unit of a document. The text is the author's, verbatim. */
 export interface Block {

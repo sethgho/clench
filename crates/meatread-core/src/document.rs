@@ -133,6 +133,9 @@ pub enum Source {
     JsonLd,
     /// Only the page's meta description was available.
     MetaDescription,
+    /// The abstract declared by scholarly citation metadata
+    /// (`citation_abstract`), used because the page body held no article.
+    CitationAbstract,
     /// Plain text input.
     PlainText,
     /// Markdown input.

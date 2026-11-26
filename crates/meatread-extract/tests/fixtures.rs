@@ -98,7 +98,7 @@ const EXPECT: [Expect; 16] = [
     },
     Expect {
         name: "10-arxiv-abs",
-        source: Source::MetaDescription,
+        source: Source::CitationAbstract,
         partial: true,
         paywall_hint: false,
         words: 166,

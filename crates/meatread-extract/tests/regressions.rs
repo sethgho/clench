@@ -5,7 +5,7 @@
 mod common;
 
 use common::*;
-use meatread_core::BlockKind;
+use meatread_core::{BlockKind, Source};
 use meatread_extract::extract_html;
 
 const URL: &str = "https://example.com/post";
@@ -174,4 +174,30 @@ fn a_real_credit_line_is_still_a_skipped_caption() {
         .expect("kept as a block");
     assert_eq!(credit.kind, BlockKind::Caption);
     assert!(credit.skip);
+}
+
+// -------------------------------------------------------- citation abstract
+
+#[test]
+fn a_citation_abstract_does_not_replace_a_real_body() {
+    let head = "<meta name=\"citation_abstract\" content=\"A four word abstract.\">";
+    let doc = html_doc(head, "");
+    assert_ne!(doc.source, Source::CitationAbstract);
+    assert!(doc.word_count > 100, "{}", doc.word_count);
+}
+
+#[test]
+fn a_citation_abstract_page_without_a_body_reads_as_its_abstract() {
+    let abstract_text = "We study the reading of long documents by people and find that \
+they read them one word at a time when the words are shown at a fixed point on screen.";
+    let html = format!(
+        "<!doctype html><html><head><title>Paper</title>\
+<meta name=\"citation_abstract\" content=\"{abstract_text}\">\
+<meta name=\"citation_author\" content=\"Doe, Jane\"></head><body><nav>Menu</nav></body></html>"
+    );
+    let doc = extract_html(&html, URL).unwrap();
+    assert_eq!(doc.source, Source::CitationAbstract);
+    assert!(doc.partial);
+    assert_eq!(doc.byline.as_deref(), Some("Doe, Jane"));
+    assert_eq!(doc.blocks[0].text, abstract_text);
 }

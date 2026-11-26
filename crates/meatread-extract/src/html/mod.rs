@@ -10,7 +10,8 @@
 //! 4. [`fallback`] supplies content when the body is implausibly short:
 //!    JSON-LD `articleBody`, then the meta description. Fallback content is
 //!    always flagged as partial. Scholarly landing pages (pages carrying
-//!    `citation_abstract`) read as their abstract, also flagged partial.
+//!    `citation_abstract` whose body is empty or just the abstract) read as
+//!    their abstract, also flagged partial.
 
 mod chrome;
 mod fallback;
@@ -22,7 +23,7 @@ use std::collections::HashSet;
 
 use dom_smoothie::dom_query::Document as Dom;
 use dom_smoothie::{Config, Readability};
-use meatread_core::{Document, Source};
+use meatread_core::{Block, Document, Source};
 
 use crate::ExtractError;
 use crate::text::{collapse, readable_words};
@@ -30,9 +31,10 @@ use crate::text::{collapse, readable_words};
 /// Bodies with fewer words than this are not trusted to be a whole article.
 const MIN_ARTICLE_WORDS: usize = 80;
 
-/// A page with a citation abstract and a body shorter than this is a landing
-/// page for a paper, not the paper.
-const MAX_ABSTRACT_PAGE_WORDS: usize = 600;
+/// A body at most this many times as long as its page's citation abstract,
+/// and containing it, is the abstract plus surrounding metadata (submission
+/// history, subjects, links), not an article.
+const ABSTRACT_BODY_FACTOR: usize = 2;
 
 /// A paywalled page whose body is shorter than this is treated as truncated.
 const MIN_PAYWALLED_WORDS: usize = 400;
@@ -96,12 +98,10 @@ pub fn extract_html(html: &str, url: &str) -> Result<Document, ExtractError> {
     }
 
     let mut words = readable_words(&doc.blocks);
-    if words < MAX_ABSTRACT_PAGE_WORDS {
-        // A scholarly landing page: the abstract is the article here, and the
-        // paper itself lives elsewhere.
-        if let Some(blocks) = fallback::citation_abstract(&page) {
+    if let Some(blocks) = fallback::citation_abstract(&page) {
+        if abstract_replaces_body(&doc, words, &blocks) {
             doc.blocks = blocks;
-            doc.source = Source::MetaDescription;
+            doc.source = Source::CitationAbstract;
             words = readable_words(&doc.blocks);
             if let Some(authors) = fallback::citation_authors(&page) {
                 doc.byline = Some(authors);
@@ -132,6 +132,33 @@ pub fn extract_html(html: &str, url: &str) -> Result<Document, ExtractError> {
         || signals.gate
         || (signals.structured && words < MIN_PAYWALLED_WORDS);
     Ok(doc)
+}
+
+/// Whether a page's citation abstract should stand in for its extracted body:
+/// the body holds almost nothing, or is the abstract plus only a little
+/// surrounding metadata. A body with real content of its own is kept.
+fn abstract_replaces_body(doc: &Document, body_words: usize, abstract_blocks: &[Block]) -> bool {
+    let abstract_words = readable_words(abstract_blocks);
+    if body_words < MIN_ARTICLE_WORDS {
+        return abstract_words >= body_words;
+    }
+    let abstract_text = abstract_blocks
+        .iter()
+        .map(|b| b.text.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let probe: String = abstract_text
+        .split_whitespace()
+        .take(8)
+        .collect::<Vec<_>>()
+        .join(" ");
+    let body_text = doc
+        .blocks
+        .iter()
+        .map(|b| collapse(&b.text))
+        .collect::<Vec<_>>()
+        .join(" ");
+    body_words <= abstract_words * ABSTRACT_BODY_FACTOR && body_text.contains(&probe)
 }
 
 /// Runs Readability, retrying without a base URL if the URL is unusable.
