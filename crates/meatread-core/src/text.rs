@@ -177,13 +177,28 @@ fn is_opener(c: char) -> bool {
     )
 }
 
-/// Titles and reference abbreviations that are followed by a name or number
-/// rather than ending a sentence. Compared case-insensitively without the dot.
-const NON_TERMINAL_ABBREVIATIONS: &[&str] = &[
-    "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "mt", "vs", "no", "nos", "fig", "figs",
-    "vol", "p", "pp", "ch", "sec", "eq", "approx", "cf", "viz", "gen", "gov", "sen", "rep", "rev",
-    "capt", "lt", "col", "sgt", "hon",
+/// Titles and similar abbreviations that are followed by a name rather than
+/// ending a sentence. Compared case-insensitively without the dot.
+const TITLE_ABBREVIATIONS: &[&str] = &[
+    "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "mt", "vs", "approx", "cf", "viz", "gen",
+    "gov", "sen", "rep", "rev", "capt", "lt", "col", "sgt", "hon",
 ];
+
+/// Reference abbreviations that are also ordinary words or common sentence
+/// endings ("the answer was no.", "wait a sec."). They are non-terminal only
+/// before a number, as in `No. 5`, `p. 12`, `Sec. 3` or `Vol. IV`.
+const REFERENCE_ABBREVIATIONS: &[&str] = &[
+    "no", "nos", "fig", "figs", "vol", "p", "pp", "ch", "sec", "eq",
+];
+
+/// Whether `word` starts like a reference number: a digit, or a Roman
+/// numeral of two or more letters.
+fn starts_like_a_number(word: &str) -> bool {
+    let word = word.trim_start_matches(is_opener);
+    let numeral: &str = word.trim_end_matches(|c: char| !c.is_ascii_alphanumeric());
+    word.chars().next().is_some_and(|c| c.is_ascii_digit())
+        || (numeral.len() >= 2 && numeral.chars().all(|c| "IVXLCDM".contains(c)))
+}
 
 /// Whether `core` (a word without surrounding punctuation or its final dot)
 /// is an initialism such as `U.S`, `e.g`, `a.m` or a single initial `J`.
@@ -237,12 +252,21 @@ pub(crate) fn ends_sentence(word: &str, next: Option<&str>, first: bool) -> bool
         .trim_end_matches(is_closer);
     if core.ends_with('.') && !core.ends_with("..") {
         let stem = &core[..core.len() - 1];
-        if is_initialism(stem) {
+        // A lone "I" before a capitalized word is the pronoun ending a
+        // sentence, not an initial.
+        if stem != "I" && is_initialism(stem) {
             return false;
         }
-        if NON_TERMINAL_ABBREVIATIONS
+        if TITLE_ABBREVIATIONS
             .iter()
             .any(|a| a.eq_ignore_ascii_case(stem))
+        {
+            return false;
+        }
+        if REFERENCE_ABBREVIATIONS
+            .iter()
+            .any(|a| a.eq_ignore_ascii_case(stem))
+            && starts_like_a_number(next)
         {
             return false;
         }
@@ -338,6 +362,11 @@ mod tests {
         assert!(ends_sentence("wait\u{2026}", Some("What"), false));
         assert!(!ends_sentence("1.", Some("First"), true));
         assert!(ends_sentence("anything", None, false));
+        assert!(ends_sentence("I.", Some("Then"), false));
+        assert!(ends_sentence("no.", Some("We"), false));
+        assert!(!ends_sentence("No.", Some("5"), false));
+        assert!(!ends_sentence("Vol.", Some("IV"), false));
+        assert!(ends_sentence("Vol.", Some("I"), false));
     }
 
     #[test]

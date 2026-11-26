@@ -477,3 +477,28 @@ fn policy_word_count_matches_the_script_a_reader_plays() {
     };
     assert_eq!(all.word_count(&doc.blocks), 5 + 3 + 5);
 }
+
+#[test]
+fn the_pronoun_i_and_everyday_words_can_end_a_sentence() {
+    assert_eq!(
+        sentence_starts("It was late, so did I. Then we left."),
+        ["It", "Then"]
+    );
+    assert_eq!(
+        sentence_starts("The answer was no. We left."),
+        ["The", "We"]
+    );
+    assert_eq!(sentence_starts("Wait a sec. Then we go."), ["Wait", "Then"]);
+    assert_eq!(
+        sentence_starts("It was Vol. IV of the set. Done."),
+        ["It", "Done."]
+    );
+    assert_eq!(
+        sentence_starts("See p. 12 and No. 5 of Sec. 3 here. Done."),
+        ["See", "Done."]
+    );
+    assert_eq!(
+        sentence_starts("He is the new rep. Smith. Then more."),
+        ["He", "Then"]
+    );
+}

@@ -66,11 +66,14 @@
 //! * **Sentences.** A word ends a sentence when it is the last of its block,
 //!   or when it ends in `.` `!` `?` `…` (before any closing quotes or
 //!   brackets) and the next word does not start with a lowercase letter.
-//!   Exceptions: titles and reference abbreviations (`Dr.`, `Mr.`, `vs.`,
-//!   `No.`, `Fig.`, `p.` ...), initialisms (`U.S.`, `e.g.`, `a.m.`, a single
-//!   capital initial like `J.`), and a bare list number like `1.` at the
-//!   start of a block. Decimals such as `3.14` never end a sentence because
-//!   the dot is inside the word.
+//!   Exceptions: title abbreviations (`Dr.`, `Mr.`, `vs.`, `Sen.` ...);
+//!   reference abbreviations that are also everyday words (`No.`, `Fig.`,
+//!   `p.`, `Sec.`, `Vol.` ...) only when a number follows (`No. 5`, `Vol. IV`),
+//!   so "The answer was no. We left." ends after "no."; initialisms (`U.S.`,
+//!   `e.g.`, `a.m.`, a single capital initial like `J.`, but not the
+//!   pronoun `I.`); and a bare list number like `1.` at the start of a block.
+//!   Decimals such as `3.14` never end a sentence because the dot is inside
+//!   the word.
 //!
 //! ## Known limitations
 //!
