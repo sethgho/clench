@@ -1,0 +1,25 @@
+[package]
+name = "meatread-wasm"
+version = "0.1.0"
+description = "WebAssembly bindings for meatread: extraction and a host-clocked reading session."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["markdown", "pdf"]
+markdown = ["meatread-extract/markdown"]
+pdf = ["meatread-extract/pdf"]
+
+[dependencies]
+meatread-core = { path = "../meatread-core", features = ["serde"] }
+meatread-extract = { path = "../meatread-extract", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Must match the installed wasm-bindgen CLI exactly.
+wasm-bindgen = "=0.2.130"
+js-sys = "0.3"

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/meatread-core", "crates/meatread-extract", "crates/meatread-cli"]
+members = ["crates/meatread-core", "crates/meatread-extract", "crates/meatread-cli", "crates/meatread-wasm"]
 
 [workspace.package]
 edition = "2024"
