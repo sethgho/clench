@@ -1,8 +1,9 @@
 //! Markdown extraction (feature `markdown`).
 
-use dom_smoothie::dom_query::Document as Dom;
 use meatread_core::{Block, BlockKind, Document, Source};
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+
+use crate::html::fragment_blocks;
 
 use crate::ExtractError;
 use crate::text::{block, collapse, readable_words};
@@ -16,9 +17,13 @@ use crate::text::{block, collapse, readable_words};
 /// Headings, list items (with depth and order), blockquotes (with nesting),
 /// fenced and indented code (with the first word of the info string as the
 /// language), tables, rules and footnote definitions become typed blocks.
-/// Raw HTML is reduced to its text. `title` and `author` keys of YAML front
-/// matter set the title and byline; otherwise the title is the first level-1
-/// heading, or a heading that opens the document.
+/// A raw HTML block is read as a whole: its visible text becomes blocks (a
+/// heading element is a heading, an image's alt text a figure) and its tags
+/// and attributes are never read; inline HTML is dropped except `<br>`.
+/// `title` and `author` keys of YAML front matter set the title and byline;
+/// otherwise the title is the first level-1 heading, else the first heading
+/// of any level (including one inside an HTML block), else the file name of
+/// `url`.
 ///
 /// # Errors
 ///
@@ -42,13 +47,12 @@ pub fn extract_markdown(md: &str, url: &str) -> Result<Document, ExtractError> {
         return Err(ExtractError::NoContent);
     }
     let title = conv.front_title.unwrap_or_else(|| {
-        let first_h1 = blocks
-            .iter()
-            .find(|b| b.kind == BlockKind::Heading && b.level == Some(1));
-        let leading_heading = blocks.first().filter(|b| b.kind == BlockKind::Heading);
-        first_h1
-            .or(leading_heading)
+        let headings = || blocks.iter().filter(|b| b.kind == BlockKind::Heading);
+        headings()
+            .find(|b| b.level == Some(1))
+            .or_else(|| headings().next())
             .map(|b| b.text.clone())
+            .or_else(|| file_name_of(url))
             .unwrap_or_default()
     });
     Ok(Document {
@@ -74,6 +78,8 @@ struct Converter {
     code: Option<Option<String>>,
     code_text: String,
     image_depth: u32,
+    /// The raw HTML block being collected, delivered line by line.
+    html_block: Option<String>,
     in_metadata: bool,
     metadata: String,
     front_title: Option<String>,
@@ -140,7 +146,22 @@ impl Converter {
             }
             return;
         }
+        if let Some(raw) = self.html_block.as_mut() {
+            match event {
+                Event::Html(h) | Event::Text(h) => raw.push_str(&h),
+                Event::End(TagEnd::HtmlBlock) => {
+                    let raw = self.html_block.take().unwrap_or_default();
+                    self.html_blocks(&raw);
+                }
+                _ => {}
+            }
+            return;
+        }
         match event {
+            Event::Start(Tag::HtmlBlock) => {
+                self.flush();
+                self.html_block = Some(String::new());
+            }
             Event::Start(tag) => self.start(tag),
             Event::End(tag) => self.end(tag),
             Event::Text(t) => {
@@ -152,7 +173,8 @@ impl Converter {
             }
             Event::Code(t) => self.buf.push_str(&t),
             Event::SoftBreak | Event::HardBreak => self.buf.push(' '),
-            Event::Html(h) | Event::InlineHtml(h) => self.html(&h),
+            Event::Html(h) => self.html_blocks(&h),
+            Event::InlineHtml(h) => self.inline_html(&h),
             Event::Rule => {
                 self.flush();
                 self.out.push(block(BlockKind::Rule, String::new()));
@@ -277,17 +299,25 @@ impl Converter {
         }
     }
 
-    /// Raw HTML is reduced to its text content.
-    fn html(&mut self, raw: &str) {
-        let text = Dom::from(raw).select("body").text();
-        let text = collapse(&text);
-        if text.is_empty() {
-            return;
+    /// A complete raw HTML block: its visible text as typed blocks.
+    fn html_blocks(&mut self, raw: &str) {
+        self.flush();
+        for mut b in fragment_blocks(raw) {
+            b.quote = self.quote;
+            if self.footnote && b.kind == BlockKind::Paragraph {
+                b.kind = BlockKind::Footnote;
+                b.skip = false;
+            }
+            self.out.push(b);
         }
-        if !self.buf.is_empty() && !self.buf.ends_with(' ') {
+    }
+
+    /// An inline HTML tag: never text, except that `<br>` separates words.
+    fn inline_html(&mut self, tag: &str) {
+        let lower = tag.trim_start().to_ascii_lowercase();
+        if lower.starts_with("<br") && !self.buf.is_empty() && !self.buf.ends_with(' ') {
             self.buf.push(' ');
         }
-        self.buf.push_str(&text);
     }
 
     fn read_front_matter(&mut self) {
@@ -308,6 +338,22 @@ impl Converter {
         }
         self.metadata.clear();
     }
+}
+
+/// The last path segment of `url` without its extension, if there is one.
+fn file_name_of(url: &str) -> Option<String> {
+    let end = url.find(['?', '#']).unwrap_or(url.len());
+    let url = &url[..end];
+    let path = match url.split_once("://") {
+        Some((_, rest)) => rest.split_once('/')?.1,
+        None => url,
+    };
+    let name = path.trim_end_matches('/').rsplit('/').next()?;
+    let stem = match name.rsplit_once('.') {
+        Some((stem, _)) if !stem.is_empty() => stem,
+        _ => name,
+    };
+    (!stem.is_empty()).then(|| stem.to_string())
 }
 
 fn heading_number(level: HeadingLevel) -> u8 {

@@ -161,6 +161,20 @@ fn abstract_replaces_body(doc: &Document, body_words: usize, abstract_blocks: &[
     body_words <= abstract_words * ABSTRACT_BODY_FACTOR && body_text.contains(&probe)
 }
 
+/// The blocks of an HTML fragment (a raw HTML block of a Markdown document),
+/// read with the same walker as a full page but without main-content
+/// detection or page-furniture trimming. Tags and attributes never reach the
+/// text; script and style content is dropped.
+#[cfg(feature = "markdown")]
+pub(crate) fn fragment_blocks(raw: &str) -> Vec<Block> {
+    let dom = Dom::from(raw);
+    let body = dom.select("body");
+    match body.nodes().first() {
+        Some(root) => walk::blocks(root).blocks,
+        None => Vec::new(),
+    }
+}
+
 /// Runs Readability, retrying without a base URL if the URL is unusable.
 fn readability(html: &str, url: &str) -> Option<dom_smoothie::Extracted> {
     let config = || Config {

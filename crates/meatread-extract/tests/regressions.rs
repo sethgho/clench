@@ -304,3 +304,93 @@ fn markdown_word_count_matches_what_the_reader_plays() {
     let played = meatread_core::Script::new(&doc).tokens().len();
     assert_eq!(doc.word_count, played);
 }
+
+// ------------------------------------------------------------------ Markdown
+
+const HTML_BLOCK_README: &str = "<div align=\"center\">
+  <picture>
+    <source media=\"(prefers-color-scheme: dark)\" srcset=\"https://example.com/dark.svg\">
+    <img alt=\"The Project: a tagline\"
+         src=\"https://example.com/light.svg\"
+         width=\"50%\">
+  </picture>
+</div>
+
+This is the main repository for the project. It holds the code.
+
+<h2 align=\"center\">Why this project</h2>
+
+<p align=\"center\">Fast, <a href=\"https://example.com/docs\">documented</a> and small.</p>
+";
+
+#[test]
+fn multi_line_html_blocks_in_markdown_never_leak_tags_or_attributes() {
+    let doc = extract(
+        HTML_BLOCK_README.as_bytes(),
+        Some("text/markdown"),
+        "https://example.com/README.md",
+    )
+    .unwrap();
+    let all = all_text(&doc);
+    for leaked in [
+        "src=",
+        "srcset",
+        "width",
+        "https://example.com/",
+        "<",
+        "align",
+    ] {
+        assert!(!all.contains(leaked), "{leaked:?} leaked: {all}");
+    }
+    let figure = doc
+        .blocks
+        .iter()
+        .find(|b| b.kind == BlockKind::Figure)
+        .expect("the image's alt text is kept as a figure");
+    assert_eq!(figure.text, "The Project: a tagline");
+    assert!(figure.skip);
+    assert!(
+        doc.blocks
+            .iter()
+            .any(|b| b.kind == BlockKind::Heading && b.text == "Why this project")
+    );
+    assert!(
+        doc.blocks
+            .iter()
+            .any(|b| b.text == "Fast, documented and small.")
+    );
+    assert_eq!(
+        readable(&doc).next().unwrap().text,
+        "This is the main repository for the project. It holds the code."
+    );
+}
+
+#[test]
+fn markdown_title_falls_back_to_a_heading_then_the_file_name() {
+    let doc = extract(
+        b"<h1 align=\"center\">Project Name</h1>\n\nBody text of the readme.\n",
+        Some("text/markdown"),
+        "https://example.com/README.md",
+    )
+    .unwrap();
+    assert_eq!(doc.title, "Project Name");
+
+    let doc = extract(
+        b"Intro words.\n\n## A Section\n\nMore words.\n",
+        Some("text/markdown"),
+        "https://example.com/docs/GUIDE.md?raw=1",
+    )
+    .unwrap();
+    assert_eq!(doc.title, "A Section");
+
+    let doc = extract(
+        b"Only words here, no headings at all.\n",
+        Some("text/markdown"),
+        "https://example.com/docs/GUIDE.md?raw=1",
+    )
+    .unwrap();
+    assert_eq!(doc.title, "GUIDE");
+
+    let doc = extract(b"Only words.\n", Some("text/markdown"), "").unwrap();
+    assert_eq!(doc.title, "");
+}
