@@ -1,0 +1,14 @@
+[workspace]
+resolver = "3"
+members = ["crates/meatread-core"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
