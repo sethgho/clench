@@ -7,13 +7,15 @@
 //! around two words of a paragraph would delete them. Before Readability
 //! runs, such inline elements get their hook attributes renamed to
 //! `data-mr-*` copies, which Readability ignores and our own rules read back
-//! through [`class_value`].
+//! through [`class_value`]. Likewise a `<button>` that carries words inside a
+//! sentence, with text right beside it (a link-styled control), becomes a `<span>`, since Readability
+//! removes buttons outright.
 
 use std::borrow::Cow;
 
 use dom_smoothie::dom_query::{Document as Dom, NodeRef};
 
-use super::chrome::{block_container, is_inline_element};
+use super::chrome::{block_container, has_adjacent_text, is_inline_element};
 use crate::text::word_count;
 
 /// Name of the attribute that carries a shielded `class`.
@@ -107,6 +109,12 @@ pub(super) fn run(html: &str) -> Cow<'_, str> {
                 n.set_attr(to, &v);
                 changed = true;
             }
+        }
+    }
+    for n in dom.select("button").nodes() {
+        if has_adjacent_text(n) {
+            n.rename("span");
+            changed = true;
         }
     }
     if changed {

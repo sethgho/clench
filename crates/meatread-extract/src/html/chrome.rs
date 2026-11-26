@@ -2,11 +2,10 @@
 //! detection. Every rule keeps or drops whole elements or blocks; none edits
 //! text.
 
-use std::collections::HashSet;
-
 use dom_smoothie::dom_query::{NodeRef, Selection};
 use meatread_core::{Block, BlockKind};
 
+use super::walk::Evidence;
 use crate::text::{collapse, word_count};
 
 /// Class-token prefixes of labels that sit above a headline ("kicker").
@@ -43,6 +42,29 @@ const MODULE_NAMES: &[&str] = &[
     "post-access-cta",
     "gh-post-upgrade-cta",
 ];
+
+/// Words in a class or id (split at `-`, `_` and `:`) that name an
+/// advertisement or sponsorship slot.
+const AD_SLOT_WORDS: &[&str] = &[
+    "ad",
+    "ads",
+    "advert",
+    "advertisement",
+    "advertising",
+    "sponsored",
+];
+
+/// Whether the element's class or id names an advertisement slot (`ad`,
+/// `ad-leaderboard`, `ad__title`, `sidebar-ads`).
+pub(super) fn names_an_ad_slot(n: &NodeRef) -> bool {
+    let named = |value: Option<String>| {
+        value.is_some_and(|v| {
+            v.split(|c: char| c.is_whitespace() || matches!(c, '-' | '_' | ':'))
+                .any(|w| AD_SLOT_WORDS.contains(&w.to_ascii_lowercase().as_str()))
+        })
+    };
+    named(super::shield::class_value(n)) || named(n.attr("id").map(|v| v.to_string()))
+}
 
 /// Short lines publishers put on their own around ads.
 const AD_LABELS: &[&str] = &["advertisement", "sponsored", "sponsored content"];
@@ -119,7 +141,7 @@ pub(super) fn is_short_leaf(n: &NodeRef, max_words: usize) -> bool {
     !Selection::from(*n).select(BLOCK_SELECTOR).exists() && word_count(&n.text()) <= max_words
 }
 
-fn has_long_paragraph(n: &NodeRef, words: usize) -> bool {
+pub(super) fn has_long_paragraph(n: &NodeRef, words: usize) -> bool {
     Selection::from(*n)
         .select("p")
         .nodes()
@@ -129,9 +151,9 @@ fn has_long_paragraph(n: &NodeRef, words: usize) -> bool {
 
 /// Elements that flow within a line of text. Anything else starts a new block.
 const INLINE_ELEMENTS: &[&str] = &[
-    "a", "abbr", "b", "bdi", "bdo", "cite", "code", "data", "del", "dfn", "em", "font", "i", "ins",
-    "kbd", "label", "mark", "q", "s", "samp", "small", "span", "strike", "strong", "sub", "sup",
-    "time", "tt", "u", "var",
+    "a", "abbr", "b", "bdi", "bdo", "button", "cite", "code", "data", "del", "dfn", "em", "font",
+    "i", "ins", "kbd", "label", "mark", "q", "s", "samp", "small", "span", "strike", "strong",
+    "sub", "sup", "time", "tt", "u", "var",
 ];
 
 pub(super) fn is_inline_element(n: &NodeRef) -> bool {
@@ -151,6 +173,26 @@ pub(super) fn block_container<'a>(n: &NodeRef<'a>) -> NodeRef<'a> {
     cur
 }
 
+/// Whether `n` has text right beside it (before or after, possibly outside
+/// inline wrappers around it): a control or label inside a sentence.
+pub(super) fn has_adjacent_text(n: &NodeRef) -> bool {
+    let mut cur = *n;
+    loop {
+        let beside = [cur.prev_sibling(), cur.next_sibling()];
+        if beside
+            .iter()
+            .flatten()
+            .any(|s| s.is_text() && !s.text().trim().is_empty())
+        {
+            return true;
+        }
+        match cur.parent() {
+            Some(p) if p.is_element() && is_inline_element(&p) => cur = p,
+            _ => return false,
+        }
+    }
+}
+
 /// Whether `n` holds all the text of its block: a bare label rather than
 /// part of a sentence.
 pub(super) fn owns_its_block(n: &NodeRef) -> bool {
@@ -167,18 +209,22 @@ pub(super) fn is_standalone_time(n: &NodeRef) -> bool {
 const SEPARATOR_CHARS: &[char] = &['•', '·', '|', '-', '–', '—', '*', '/', '→', '»', '›'];
 
 /// Drops blocks made only of separator characters (stray bullets between
-/// meta items) and standalone advertisement labels.
-pub(super) fn drop_noise(blocks: &mut Vec<Block>) {
+/// meta items) and advertisement labels. A label is dropped only when it is a
+/// paragraph whose whole text is the label and it sits inside an element
+/// that names an advertisement slot (`in_ad`).
+pub(super) fn drop_noise(blocks: &mut Vec<Block>, evidence: &Evidence) {
     blocks.retain(|b| {
         if b.kind == BlockKind::Rule || b.kind == BlockKind::Code {
             return true;
         }
-        let lower = b.text.trim().to_lowercase();
         let separators_only = b
             .text
             .chars()
             .all(|c| c.is_whitespace() || SEPARATOR_CHARS.contains(&c));
-        !separators_only && !AD_LABELS.contains(&lower.as_str())
+        let ad_label = b.kind == BlockKind::Paragraph
+            && AD_LABELS.contains(&b.text.trim().to_lowercase().as_str())
+            && evidence.in_ad.contains(&b.text);
+        !separators_only && !ad_label
     });
 }
 
@@ -186,15 +232,15 @@ pub(super) fn drop_noise(blocks: &mut Vec<Block>) {
 /// body.
 ///
 /// A paragraph is dropped only when it is short, mentions one of the
-/// promotional phrases, and is a `closing_notes` paragraph: set entirely in
+/// promotional phrases, and is one of the evidence's `closing_notes`: set entirely in
 /// italics and containing a link, the way publishers typeset an author bio or
 /// a syndication line. A paragraph that merely uses the words ("I decided to
 /// sign up for a marathon") fails the typographic test and is kept.
-pub(super) fn trim_tail(blocks: &mut Vec<Block>, closing_notes: &HashSet<String>) {
+pub(super) fn trim_tail(blocks: &mut Vec<Block>, evidence: &Evidence) {
     let is_tail = |b: &Block| {
         b.kind == BlockKind::Paragraph
             && word_count(&b.text) <= TAIL_MAX_WORDS
-            && closing_notes.contains(&b.text)
+            && evidence.closing_notes.contains(&b.text)
             && {
                 let t = b.text.to_lowercase();
                 TAIL_PHRASES.iter().any(|p| t.contains(p))

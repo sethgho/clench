@@ -20,11 +20,10 @@ mod shield;
 mod trim;
 mod walk;
 
-use std::collections::HashSet;
-
 use dom_smoothie::dom_query::Document as Dom;
 use dom_smoothie::{Config, Readability};
 use meatread_core::{Block, Document, Source};
+use walk::Evidence;
 
 use crate::ExtractError;
 use crate::text::{collapse, readable_words};
@@ -79,7 +78,7 @@ pub fn extract_html(html: &str, url: &str) -> Result<Document, ExtractError> {
         ..Document::default()
     };
 
-    let mut closing_notes = HashSet::new();
+    let mut evidence = Evidence::default();
     let article = readability(&shield::run(html), url);
     if let Some(article) = &article {
         let m = &article.metadata;
@@ -90,7 +89,7 @@ pub fn extract_html(html: &str, url: &str) -> Result<Document, ExtractError> {
         doc.excerpt = non_empty(m.excerpt.as_deref());
         let walked = walk::blocks(&article.root());
         doc.blocks = walked.blocks;
-        closing_notes = walked.closing_notes;
+        evidence = walked.evidence;
         doc.source = Source::Readability;
     }
 
@@ -115,9 +114,9 @@ pub fn extract_html(html: &str, url: &str) -> Result<Document, ExtractError> {
     doc.paywall_hint = signals.structured || signals.gate;
 
     if doc.source == Source::Readability {
-        chrome::drop_noise(&mut doc.blocks);
-        trim::trim_edge_chrome(&mut doc);
-        chrome::trim_tail(&mut doc.blocks, &closing_notes);
+        chrome::drop_noise(&mut doc.blocks, &evidence);
+        trim::trim_edge_chrome(&mut doc, &evidence);
+        chrome::trim_tail(&mut doc.blocks, &evidence);
         trim::rescue_lede(&page, &mut doc);
     }
 

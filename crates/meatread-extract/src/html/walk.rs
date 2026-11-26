@@ -13,11 +13,26 @@ use crate::text::{block, collapse};
 /// Marks a paragraph boundary inside buffered inline text (`<br><br>`).
 const PARA_BREAK: char = '\u{1}';
 
-/// The blocks of a walked DOM, plus the texts of paragraphs that look like an
-/// author or syndication note: set entirely in italics and containing a link.
+/// Typographic and structural evidence about paragraphs, keyed by their
+/// text. Edge-trimming rules combine it with wording; wording alone never
+/// drops text.
+#[derive(Default)]
+pub(super) struct Evidence {
+    /// Paragraphs that look like an author or syndication note: set entirely
+    /// in italics and containing a link.
+    pub closing_notes: HashSet<String>,
+    /// Paragraphs whose whole text is a link or a `<time>`, the way page
+    /// furniture such as comment counts and relative timestamps is marked up.
+    pub link_only: HashSet<String>,
+    /// Paragraphs inside an element whose class or id names an
+    /// advertisement or sponsorship slot.
+    pub in_ad: HashSet<String>,
+}
+
+/// The blocks of a walked DOM with their evidence.
 pub(super) struct Walked {
     pub blocks: Vec<Block>,
-    pub closing_notes: HashSet<String>,
+    pub evidence: Evidence,
 }
 
 /// Walks the children of `root` into blocks.
@@ -27,7 +42,7 @@ pub(super) fn blocks(root: &NodeRef) -> Walked {
     w.flush(Ctx::default());
     Walked {
         blocks: w.out,
-        closing_notes: w.notes,
+        evidence: w.evidence,
     }
 }
 
@@ -39,6 +54,10 @@ struct Ctx {
     footnotes: bool,
     /// Inside `<em>` or `<i>`.
     italic: bool,
+    /// Inside `<a>` or `<time>`.
+    linked: bool,
+    /// Inside an advertisement or sponsorship slot.
+    in_ad: bool,
 }
 
 fn styled(kind: BlockKind, text: String, ctx: &Ctx) -> Block {
@@ -62,9 +81,11 @@ struct Walker {
     depth: usize,
     out: Vec<Block>,
     buf: String,
-    notes: HashSet<String>,
+    evidence: Evidence,
     /// The buffered text holds some text outside italics.
     has_roman: bool,
+    /// The buffered text holds some text outside links.
+    has_unlinked: bool,
     /// The buffered text holds a link.
     has_link: bool,
 }
@@ -74,6 +95,8 @@ impl Walker {
     fn flush(&mut self, ctx: Ctx) {
         let buf = std::mem::take(&mut self.buf);
         let note = !self.has_roman && self.has_link;
+        let link_only = !self.has_unlinked && self.has_link;
+        self.has_unlinked = false;
         self.has_roman = false;
         self.has_link = false;
         for part in buf.split(PARA_BREAK) {
@@ -91,7 +114,13 @@ impl Walker {
                 BlockKind::Paragraph
             };
             if note && kind == BlockKind::Paragraph {
-                self.notes.insert(text.clone());
+                self.evidence.closing_notes.insert(text.clone());
+            }
+            if ctx.in_ad && kind == BlockKind::Paragraph {
+                self.evidence.in_ad.insert(text.clone());
+            }
+            if link_only && kind == BlockKind::Paragraph {
+                self.evidence.link_only.insert(text.clone());
             }
             let mut b = styled(kind, text, &ctx);
             if kind == BlockKind::ListItem {
@@ -115,6 +144,7 @@ impl Walker {
             let text = node.text();
             if !text.trim().is_empty() {
                 self.has_roman |= !ctx.italic;
+                self.has_unlinked |= !ctx.linked;
                 self.buf.push_str(&text);
             }
             return;
@@ -128,8 +158,9 @@ impl Walker {
         for child in node.children() {
             if child.is_text() {
                 let text = child.text();
-                if !ctx.italic && !text.trim().is_empty() {
-                    self.has_roman = true;
+                if !text.trim().is_empty() {
+                    self.has_roman |= !ctx.italic;
+                    self.has_unlinked |= !ctx.linked;
                 }
                 self.buf.push_str(&text);
                 continue;
@@ -159,6 +190,10 @@ impl Walker {
     }
 
     fn element(&mut self, child: &NodeRef, name: &str, ctx: Ctx) {
+        let ctx = Ctx {
+            in_ad: ctx.in_ad || super::chrome::names_an_ad_slot(child),
+            ..ctx
+        };
         match name {
             "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                 self.flush(ctx);
@@ -215,8 +250,8 @@ impl Walker {
                     self.flush(ctx);
                 }
             }
-            "figure" if sel(child, "pre, blockquote, table, ul, ol").exists() => {
-                // Figures used as wrappers (code listings, pull quotes).
+            "figure" if is_wrapper_figure(child) => {
+                // Figures used as wrappers (code listings, pull quotes, poems).
                 self.flush(ctx);
                 self.walk(child, ctx);
                 self.flush(ctx);
@@ -271,9 +306,13 @@ impl Walker {
                 };
                 self.walk(child, inner);
             }
-            "a" => {
+            "a" | "time" => {
                 self.has_link = true;
-                self.walk(child, ctx);
+                let inner = Ctx {
+                    linked: true,
+                    ..ctx
+                };
+                self.walk(child, inner);
             }
             // Inline elements: strong, code, span, font, ...
             _ => self.walk(child, ctx),
@@ -285,9 +324,15 @@ impl Walker {
 /// reference-marker furniture inside the article.
 fn is_dropped(n: &NodeRef, name: &str) -> bool {
     match name {
-        "script" | "style" | "noscript" | "template" | "button" | "input" | "select"
-        | "textarea" | "form" | "nav" | "img" | "video" | "audio" | "iframe" | "svg" | "canvas"
-        | "object" | "embed" | "wbr" => true,
+        "script" | "style" | "noscript" | "template" | "input" | "select" | "textarea" | "nav"
+        | "img" | "video" | "audio" | "iframe" | "svg" | "canvas" | "object" | "embed" | "wbr" => {
+            true
+        }
+        // Controls are interface unless they sit inside a sentence
+        // (link-styled buttons) or a form wraps article paragraphs (legacy
+        // page-wide forms).
+        "button" => !super::chrome::has_adjacent_text(n),
+        "form" => !super::chrome::has_long_paragraph(n, FORM_MAX_PARAGRAPH_WORDS),
         "sup" if is_footnote_ref(n) => true,
         _ => {
             is_backlink(n) || super::chrome::is_furniture(n) || super::chrome::is_standalone_time(n)
@@ -347,6 +392,12 @@ fn code_lang(pre: &NodeRef) -> Option<String> {
     pre.attr("data-lang").map(|s| s.to_string())
 }
 
+/// A form holding a paragraph at least this long is content, not a control.
+const FORM_MAX_PARAGRAPH_WORDS: usize = 40;
+
+/// A footnote marker is at most this many characters ("12", "[a]", "†").
+const FOOTNOTE_MARKER_MAX_CHARS: usize = 5;
+
 /// A caption or credit has at most this many words.
 const CAPTION_MAX_WORDS: usize = 40;
 
@@ -370,7 +421,11 @@ fn is_credit(n: &NodeRef) -> bool {
 fn is_footnote_ref(sup: &NodeRef) -> bool {
     let a = sel(sup, "a");
     let href = a.attr("href").unwrap_or_default();
-    a.length() == 1 && href.starts_with('#') && collapse(&a.text()) == collapse(&sup.text())
+    let text = collapse(&sup.text());
+    a.length() == 1
+        && href.starts_with('#')
+        && text == collapse(&a.text())
+        && text.chars().count() <= FOOTNOTE_MARKER_MAX_CHARS
 }
 
 fn is_footnote_section(n: &NodeRef) -> bool {
@@ -381,6 +436,21 @@ fn is_footnote_section(n: &NodeRef) -> bool {
                 "footnotes" | "footnote-definitions" | "references" | "reflist"
             )
         })
+}
+
+/// A figure that holds text structure of its own outside its caption. A
+/// paragraph that wraps the picture (which Readability makes out of picture
+/// containers) is part of the picture, not text.
+fn is_wrapper_figure(figure: &NodeRef) -> bool {
+    sel(
+        figure,
+        "pre, blockquote, table, ul, ol, p, h1, h2, h3, h4, h5, h6, dl",
+    )
+    .nodes()
+    .iter()
+    .any(|n| {
+        !n.ancestors_it(None).any(|a| a.has_name("figcaption")) && !sel(n, "img, picture").exists()
+    })
 }
 
 /// Distinguishes data tables from layout tables, as Readability does.

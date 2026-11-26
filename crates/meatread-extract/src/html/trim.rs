@@ -3,6 +3,7 @@
 use dom_smoothie::dom_query::Document as Dom;
 use meatread_core::{Block, BlockKind, Document};
 
+use super::walk::Evidence;
 use crate::text::{block, collapse, word_count};
 
 /// Paragraphs shorter than this many words can be page chrome.
@@ -10,7 +11,12 @@ const BODY_PARAGRAPH_WORDS: usize = 12;
 
 /// Drops short metadata residue ("3 hours ago", "103 Comments", "8 min read",
 /// a repeat of the byline) from the very start and end of the body.
-pub(super) fn trim_edge_chrome(doc: &mut Document) {
+///
+/// A counter or timestamp is dropped only when its wording fits and its whole
+/// text is a link or `<time>` (`evidence.link_only`), which is how such furniture is
+/// marked up; a plain paragraph that happens to read "10 years ago" is
+/// article text.
+pub(super) fn trim_edge_chrome(doc: &mut Document, evidence: &Evidence) {
     let byline = doc.byline.as_deref().map(|b| collapse(b).to_lowercase());
     let is_chrome = |b: &Block| {
         if b.kind != BlockKind::Paragraph {
@@ -26,6 +32,7 @@ pub(super) fn trim_edge_chrome(doc: &mut Document) {
             .is_some_and(|f| f.chars().all(|c| c.is_ascii_digit() || c == ','));
         let tail = words.last().copied().unwrap_or("");
         words.len() <= 4
+            && evidence.link_only.contains(&b.text)
             && numeric
             && matches!(tail, "comments" | "comment" | "ago" | "read" | "replies")
     };

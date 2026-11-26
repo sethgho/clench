@@ -527,3 +527,92 @@ fn markdown_with_an_absurdly_nested_html_block_is_refused() {
     let err = extract(md.as_bytes(), Some("text/markdown"), "").unwrap_err();
     assert!(matches!(err, ExtractError::TooDeeplyNested { .. }));
 }
+
+// ------------------------------------------------- other drop rules (audit)
+
+#[test]
+fn a_button_inside_a_sentence_keeps_its_words_but_a_lone_control_is_dropped() {
+    let doc = html_doc(
+        "",
+        "<p>Please <button class=\"linklike\">click here</button> to continue reading the story right now.</p>\
+<div><button>Share this</button></div>",
+    );
+    let text = reading_text(&doc);
+    assert!(
+        text.contains("Please click here to continue reading the story right now."),
+        "{text}"
+    );
+    assert!(!text.contains("Share this"));
+}
+
+#[test]
+fn a_form_wrapping_article_paragraphs_is_read_but_a_small_form_is_dropped() {
+    let long = format!("<p>{FILLER} {FILLER}</p>");
+    let doc = html_doc(
+        "",
+        &format!(
+            "<form id=\"aspnetForm\">{long}</form><form><label>Email</label><input name=\"e\"><button>Join</button></form>"
+        ),
+    );
+    let text = reading_text(&doc);
+    assert!(text.matches("The quick brown fox").count() >= 4, "{text}");
+    assert!(!text.contains("Email"));
+}
+
+#[test]
+fn only_short_footnote_marker_links_are_dropped() {
+    let doc = html_doc(
+        "",
+        "<p>The claim was disputed<sup><a href=\"#fn1\">12</a></sup> and then the 4<sup><a href=\"#top\">th party reports</a></sup> repeated it again later on.</p>",
+    );
+    assert!(
+        reading_text(&doc).contains(
+            "The claim was disputed and then the 4th party reports repeated it again later on."
+        ),
+        "{}",
+        reading_text(&doc)
+    );
+}
+
+#[test]
+fn a_figure_holding_paragraphs_is_read() {
+    let doc = html_doc(
+        "",
+        "<figure><p>Roses are red and violets are blue and this is a poem.</p><figcaption>By A. Poet</figcaption></figure>",
+    );
+    assert!(reading_text(&doc).contains("Roses are red and violets are blue and this is a poem."));
+    let caption = doc.blocks.iter().find(|b| b.text == "By A. Poet").unwrap();
+    assert_eq!(caption.kind, BlockKind::Caption);
+}
+
+#[test]
+fn a_paragraph_that_reads_like_a_timestamp_is_kept_unless_it_is_a_link() {
+    let doc = html_doc(
+        "",
+        "<p>It was a long time. Everything changed.</p><p>10 years ago</p><p>The story continues after the gap in time.</p>\
+<p>The end of the piece is near now.</p><p>3 years ago</p>",
+    );
+    let t = texts(&doc);
+    assert_eq!(t.last().unwrap(), "3 years ago");
+    assert!(t.contains(&"10 years ago".to_string()));
+
+    let doc = html_doc(
+        "",
+        "<p>The end of the piece is near now.</p><p><a href=\"/c\">108 Comments</a></p>",
+    );
+    assert_eq!(
+        texts(&doc).last().unwrap(),
+        "The end of the piece is near now."
+    );
+}
+
+#[test]
+fn an_advertisement_label_is_dropped_only_inside_an_ad_slot() {
+    let doc = html_doc(
+        "",
+        "<div class=\"ad ad-leaderboard\"><div class=\"ad__title\">Advertisement</div></div>\
+<p>Advertisement</p><p>The article carries on with more words after that line.</p>",
+    );
+    let t = texts(&doc);
+    assert_eq!(t.iter().filter(|p| *p == "Advertisement").count(), 1);
+}
