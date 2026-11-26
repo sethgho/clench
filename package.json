@@ -1,0 +1,19 @@
+{
+  "name": "meatread-workspace",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "build:wasm": "sh scripts/build-wasm.sh",
+    "dev": "test -f crates/meatread-wasm/pkg/meatread_bg.wasm || sh scripts/build-wasm.sh; ./node_modules/.bin/bun apps/tui/src/main.tsx",
+    "test": "sh scripts/build-wasm.sh && cargo test --workspace --all-features && ./node_modules/.bin/bun test && ./node_modules/.bin/bun x tsc --noEmit",
+    "test:bun": "./node_modules/.bin/bun test",
+    "typecheck": "./node_modules/.bin/bun x tsc --noEmit",
+    "measure": "./node_modules/.bin/bun apps/tui/scripts/measure.ts",
+    "build": "sh scripts/build-wasm.sh && ./node_modules/.bin/bun apps/tui/scripts/build.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.4",
+    "bun": "1.4.4",
+    "typescript": "5.9.3"
+  }
+}
