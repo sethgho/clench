@@ -41,9 +41,15 @@ fn looks_like_html(bytes: &[u8]) -> bool {
         || head.contains("<body")
 }
 
+/// Whether `bytes` start with the PDF header, allowing a byte order mark and
+/// leading white space. The marker anywhere later is just text.
 fn is_pdf(bytes: &[u8]) -> bool {
-    let head = &bytes[..bytes.len().min(1024)];
-    head.windows(5).any(|w| w == b"%PDF-")
+    let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
+    let start = bytes
+        .iter()
+        .position(|b| !b.is_ascii_whitespace())
+        .unwrap_or(bytes.len());
+    bytes[start..].starts_with(b"%PDF-")
 }
 
 pub(crate) fn detect(

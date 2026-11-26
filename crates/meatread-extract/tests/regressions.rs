@@ -6,7 +6,7 @@ mod common;
 
 use common::*;
 use meatread_core::{BlockKind, Source};
-use meatread_extract::extract_html;
+use meatread_extract::{ExtractError, extract, extract_html};
 
 const URL: &str = "https://example.com/post";
 
@@ -200,4 +200,37 @@ they read them one word at a time when the words are shown at a fixed point on s
     assert!(doc.partial);
     assert_eq!(doc.byline.as_deref(), Some("Doe, Jane"));
     assert_eq!(doc.blocks[0].text, abstract_text);
+}
+
+// ------------------------------------------------------------ format sniffing
+
+#[test]
+fn a_pdf_marker_inside_a_page_does_not_make_it_a_pdf() {
+    let html = article_page(
+        "",
+        "<p>See the header <code>%PDF-1.7</code> for details.</p>",
+    )
+    .replace(
+        "<title>A Post</title>",
+        "<title>On %PDF-1.7 headers</title>",
+    );
+    let doc = extract(html.as_bytes(), Some("text/html"), URL).unwrap();
+    assert!(doc.word_count > 50);
+
+    let text = "Notes\n\nThe file begins with %PDF-1.4 and then the objects follow.";
+    let doc = extract(text.as_bytes(), Some("text/plain"), "").unwrap();
+    assert_eq!(doc.source, Source::PlainText);
+
+    // Without a Content-Type the marker still counts only at the very start.
+    let doc = extract(text.as_bytes(), None, "").unwrap();
+    assert_eq!(doc.source, Source::PlainText);
+}
+
+#[test]
+fn pdf_magic_at_the_start_is_still_detected() {
+    for prefix in ["", "\u{feff}", "\n  "] {
+        let bytes = format!("{prefix}%PDF-1.4\nnot really a pdf");
+        let err = extract(bytes.as_bytes(), Some("text/plain"), "").unwrap_err();
+        assert!(matches!(err, ExtractError::Pdf(_)), "{prefix:?}: {err:?}");
+    }
 }

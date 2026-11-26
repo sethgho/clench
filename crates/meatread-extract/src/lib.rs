@@ -98,8 +98,9 @@ impl std::error::Error for ExtractError {}
 
 /// Extracts a readable [`Document`] from a fetched resource.
 ///
-/// The format is chosen from the bytes and the headers: PDF magic bytes win,
-/// then the Content-Type (`text/html`, `text/markdown`, `text/plain`, ...),
+/// The format is chosen from the bytes and the headers: a PDF header at the
+/// very start of the bytes (after an optional byte order mark and white
+/// space) wins, then the Content-Type (`text/html`, `text/markdown`, `text/plain`, ...),
 /// then the URL's path extension (`.md`, `.markdown`) and finally a sniff of
 /// the first bytes for HTML. Unknown text is treated as plain text.
 ///
