@@ -17,6 +17,8 @@ mod fallback;
 mod trim;
 mod walk;
 
+use std::collections::HashSet;
+
 use dom_smoothie::dom_query::Document as Dom;
 use dom_smoothie::{Config, Readability};
 use meatread_core::{Document, Source};
@@ -50,6 +52,7 @@ pub fn extract_html(html: &str, url: &str) -> Result<Document, ExtractError> {
         ..Document::default()
     };
 
+    let mut closing_notes = HashSet::new();
     let article = readability(html, url);
     if let Some(article) = &article {
         let m = &article.metadata;
@@ -58,7 +61,9 @@ pub fn extract_html(html: &str, url: &str) -> Result<Document, ExtractError> {
         doc.site_name = non_empty(m.site_name.as_deref());
         doc.lang = non_empty(m.lang.as_deref());
         doc.excerpt = non_empty(m.excerpt.as_deref());
-        doc.blocks = walk::blocks(&article.root());
+        let walked = walk::blocks(&article.root());
+        doc.blocks = walked.blocks;
+        closing_notes = walked.closing_notes;
         doc.source = Source::Readability;
     }
 
@@ -85,7 +90,7 @@ pub fn extract_html(html: &str, url: &str) -> Result<Document, ExtractError> {
     if doc.source == Source::Readability {
         chrome::drop_noise(&mut doc.blocks);
         trim::trim_edge_chrome(&mut doc);
-        chrome::trim_tail(&mut doc.blocks);
+        chrome::trim_tail(&mut doc.blocks, &closing_notes);
         trim::rescue_lede(&page, &mut doc);
     }
 

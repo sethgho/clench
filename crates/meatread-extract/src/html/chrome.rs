@@ -2,6 +2,8 @@
 //! detection. Every rule keeps or drops whole elements or blocks; none edits
 //! text.
 
+use std::collections::HashSet;
+
 use dom_smoothie::dom_query::NodeRef;
 use meatread_core::{Block, BlockKind};
 
@@ -34,7 +36,7 @@ const MODULE_NAMES: &[&str] = &[
 /// Short lines publishers put on their own around ads.
 const AD_LABELS: &[&str] = &["advertisement", "sponsored", "sponsored content"];
 
-/// Phrases that mark a closing promotional or syndication paragraph.
+/// Phrases that mark a closing promotional or syndication note.
 const TAIL_PHRASES: &[&str] = &[
     "originally appeared",
     "originally published",
@@ -97,13 +99,23 @@ pub(super) fn drop_noise(blocks: &mut Vec<Block>) {
     });
 }
 
-/// Drops short promotional paragraphs from the very end of the body.
-pub(super) fn trim_tail(blocks: &mut Vec<Block>) {
+/// Drops closing promotional or syndication notes from the very end of the
+/// body.
+///
+/// A paragraph is dropped only when it is short, mentions one of the
+/// promotional phrases, and is a `closing_notes` paragraph: set entirely in
+/// italics and containing a link, the way publishers typeset an author bio or
+/// a syndication line. A paragraph that merely uses the words ("I decided to
+/// sign up for a marathon") fails the typographic test and is kept.
+pub(super) fn trim_tail(blocks: &mut Vec<Block>, closing_notes: &HashSet<String>) {
     let is_tail = |b: &Block| {
-        b.kind == BlockKind::Paragraph && word_count(&b.text) <= TAIL_MAX_WORDS && {
-            let t = b.text.to_lowercase();
-            TAIL_PHRASES.iter().any(|p| t.contains(p))
-        }
+        b.kind == BlockKind::Paragraph
+            && word_count(&b.text) <= TAIL_MAX_WORDS
+            && closing_notes.contains(&b.text)
+            && {
+                let t = b.text.to_lowercase();
+                TAIL_PHRASES.iter().any(|p| t.contains(p))
+            }
     };
     while blocks.last().is_some_and(is_tail) {
         blocks.pop();

@@ -3,6 +3,8 @@
 //! Text is only ever kept or dropped. The one transformation is collapsing
 //! HTML white space, except inside `<pre>`, which is kept verbatim.
 
+use std::collections::HashSet;
+
 use dom_smoothie::dom_query::{NodeRef, Selection};
 use meatread_core::{Block, BlockKind};
 
@@ -11,12 +13,22 @@ use crate::text::{block, collapse};
 /// Marks a paragraph boundary inside buffered inline text (`<br><br>`).
 const PARA_BREAK: char = '\u{1}';
 
+/// The blocks of a walked DOM, plus the texts of paragraphs that look like an
+/// author or syndication note: set entirely in italics and containing a link.
+pub(super) struct Walked {
+    pub blocks: Vec<Block>,
+    pub closing_notes: HashSet<String>,
+}
+
 /// Walks the children of `root` into blocks.
-pub(super) fn blocks(root: &NodeRef) -> Vec<Block> {
+pub(super) fn blocks(root: &NodeRef) -> Walked {
     let mut w = Walker::default();
     w.walk(root, Ctx::default());
     w.flush(Ctx::default());
-    w.out
+    Walked {
+        blocks: w.out,
+        closing_notes: w.notes,
+    }
 }
 
 #[derive(Clone, Copy, Default)]
@@ -25,6 +37,8 @@ struct Ctx {
     list_depth: u8,
     ordered: bool,
     footnotes: bool,
+    /// Inside `<em>` or `<i>`.
+    italic: bool,
 }
 
 fn styled(kind: BlockKind, text: String, ctx: &Ctx) -> Block {
@@ -42,12 +56,20 @@ fn sel<'a>(n: &NodeRef<'a>, css: &str) -> Selection<'a> {
 struct Walker {
     out: Vec<Block>,
     buf: String,
+    notes: HashSet<String>,
+    /// The buffered text holds some text outside italics.
+    has_roman: bool,
+    /// The buffered text holds a link.
+    has_link: bool,
 }
 
 impl Walker {
     /// Emits buffered inline text as text blocks typed by the context.
     fn flush(&mut self, ctx: Ctx) {
         let buf = std::mem::take(&mut self.buf);
+        let note = !self.has_roman && self.has_link;
+        self.has_roman = false;
+        self.has_link = false;
         for part in buf.split(PARA_BREAK) {
             let text = collapse(part);
             if text.is_empty() {
@@ -62,6 +84,9 @@ impl Walker {
             } else {
                 BlockKind::Paragraph
             };
+            if note && kind == BlockKind::Paragraph {
+                self.notes.insert(text.clone());
+            }
             let mut b = styled(kind, text, &ctx);
             if kind == BlockKind::ListItem {
                 b.depth = Some(ctx.list_depth);
@@ -82,7 +107,11 @@ impl Walker {
     fn walk(&mut self, node: &NodeRef, ctx: Ctx) {
         for child in node.children() {
             if child.is_text() {
-                self.buf.push_str(&child.text());
+                let text = child.text();
+                if !ctx.italic && !text.trim().is_empty() {
+                    self.has_roman = true;
+                }
+                self.buf.push_str(&text);
                 continue;
             }
             if !child.is_element() {
@@ -215,7 +244,18 @@ impl Walker {
                 self.walk(child, ctx);
                 self.flush(ctx);
             }
-            // Inline elements: a, em, strong, code, span, font, ...
+            "em" | "i" => {
+                let inner = Ctx {
+                    italic: true,
+                    ..ctx
+                };
+                self.walk(child, inner);
+            }
+            "a" => {
+                self.has_link = true;
+                self.walk(child, ctx);
+            }
+            // Inline elements: strong, code, span, font, ...
             _ => self.walk(child, ctx),
         }
     }
