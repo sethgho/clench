@@ -1,6 +1,7 @@
 {
   "name": "meatread-workspace",
   "private": true,
+  "license": "MIT",
   "workspaces": ["apps/*"],
   "scripts": {
     "build:wasm": "sh scripts/build-wasm.sh",

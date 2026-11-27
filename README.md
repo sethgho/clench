@@ -159,3 +159,7 @@ cargo build -p meatread-core --target thumbv7em-none-eabihf --features serde
 cargo build -p meatread-core --target wasm32-unknown-unknown --features serde
 cargo build -p meatread-extract --target wasm32-unknown-unknown --release --no-default-features
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE). Page snapshots under `fixtures/` are third-party content and are excluded.
