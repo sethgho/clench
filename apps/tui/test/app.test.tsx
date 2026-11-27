@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { RGBA, TextAttributes } from "@opentui/core"
 import { testRender } from "@opentui/solid"
 import { Session } from "../src/engine"
-import { finishedSummary, notRead } from "../src/ui/app"
 import { makeTheme } from "../src/theme"
 import { pivotColumn, Reticle } from "../src/ui/reticle"
 import { columns, docFrom, fixtureDoc, mount, sameColor, type Harness } from "./helpers"
@@ -153,15 +152,6 @@ describe("screens", () => {
     const md = "# Title\n\nIntro words here.\n\n```\nlet x = 1;\n```\n\n```\nlet y = 2;\n```\n\nOutro."
     const h = await app(docFrom(md, "text/markdown"))
     expect(await h.screen()).toContain("not read: 2 code blocks (marked)")
-  })
-
-  test("notRead words kinds, singulars, marked versus silent, and ignores empty blocks", () => {
-    const o = (kind: any, marked: number, marked_words: number, skipped: number, skipped_words: number) => ({ kind, marked, marked_words, skipped, skipped_words })
-    expect(notRead([])).toBeUndefined()
-    expect(notRead([o("rule", 0, 0, 3, 0)])).toBeUndefined()
-    expect(notRead([o("code", 15, 300, 0, 0), o("footnote", 0, 0, 12, 90), o("caption", 0, 0, 1, 5)])).toBe(
-      "not read: 15 code blocks (marked), 12 footnotes, 1 caption",
-    )
   })
 
   test("ready screen says when a document is only an abstract", async () => {

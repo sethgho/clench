@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { Driver, realClock } from "../src/clock"
-import { Session } from "../src/engine"
-import { docFrom, FakeClock } from "./helpers"
+import { FakeClock } from "../src/fake-clock"
+import { docFrom, Session } from "./engine"
 
 const TEXT = Array.from({ length: 40 }, (_, i) => `Sentence number ${i} has a few words, then ends.`).join(" ")
 

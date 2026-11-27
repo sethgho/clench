@@ -1,9 +1,8 @@
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { createSignal, For, Match, onCleanup, Show, Switch } from "solid-js"
-import { Driver, realClock, type Clock } from "../clock"
-import type { BlockKind, Context, Document, Frame, Omitted, Session } from "../engine"
-import * as fmt from "../format"
-import { actionFor, KEY_HELP, WPM_STEP, type Action } from "../keys"
+import { actionFor, Driver, finishedSummary, KEY_HELP, notRead, realClock, siteLabel, warnings, WPM_STEP, type Action, type Clock } from "@clench/host"
+import * as fmt from "@clench/host/format"
+import type { Context, Document, Frame, Session } from "../engine"
 import type { Style, Theme } from "../theme"
 import { highlight, width as textWidth, window, wrap } from "../wrap"
 import { Piece } from "./piece"
@@ -20,41 +19,6 @@ export interface AppProps {
   stopProcess?: () => void
   /** Leaves and re-enters the terminal around a stop; the renderer by default. */
   terminal?: { suspend(): Promise<void>; resume(): Promise<void> }
-}
-
-const NOUNS: Record<BlockKind, { one: string; many: string }> = {
-  heading: { one: "heading", many: "headings" },
-  paragraph: { one: "paragraph", many: "paragraphs" },
-  list_item: { one: "list item", many: "list items" },
-  blockquote: { one: "quote", many: "quotes" },
-  code: { one: "code block", many: "code blocks" },
-  table: { one: "table", many: "tables" },
-  figure: { one: "figure", many: "figures" },
-  caption: { one: "caption", many: "captions" },
-  footnote: { one: "footnote", many: "footnotes" },
-  rule: { one: "rule", many: "rules" },
-}
-
-/**
- * What the script leaves out, for the ready screen: blocks shown only as a
- * marker are labelled, blocks dropped silently are not. Blocks with no words
- * in them (a horizontal rule) are not worth a mention.
- */
-export function notRead(omitted: Omitted[]): string | undefined {
-  const noun = (kind: BlockKind, n: number) => `${fmt.count(n)} ${(n === 1 ? NOUNS[kind].one : NOUNS[kind].many)}`
-  const parts: string[] = []
-  for (const o of omitted) {
-    if (o.marked > 0 && o.marked_words > 0) parts.push(`${noun(o.kind, o.marked)} (marked)`)
-    if (o.skipped > 0 && o.skipped_words > 0) parts.push(noun(o.kind, o.skipped))
-  }
-  return parts.length > 0 ? `not read: ${parts.join(", ")}` : undefined
-}
-
-/** The finished screen's summary line; a rate only for a straight read. */
-export function finishedSummary(words: number, playedMs: number, straight: boolean): string {
-  const rate = playedMs > 0 ? Math.round(words / (playedMs / 60_000)) : 0
-  if (straight && rate > 0) return `${fmt.count(words)} words in ${fmt.clock(playedMs)} · ${fmt.count(rate)} wpm overall`
-  return `${fmt.count(words)} words in the document · ${fmt.clock(playedMs)} spent reading`
 }
 
 /** Rows used by the parts of the reading view at a given terminal size. */
@@ -99,33 +63,6 @@ function truncate(text: string, columns: number): string {
 function centred(text: string, columns: number): string {
   const t = truncate(text, columns)
   return " ".repeat(Math.max(0, Math.floor((columns - textWidth(t)) / 2))) + t
-}
-
-export function siteLabel(doc: Document): string {
-  const parts: string[] = []
-  if (doc.byline) parts.push(doc.byline)
-  let site = doc.site_name ?? ""
-  if (!site && doc.url) {
-    try {
-      site = new URL(doc.url).hostname.replace(/^www\./, "")
-    } catch {}
-  }
-  if (site && site !== doc.byline) parts.push(site)
-  return parts.join(" · ")
-}
-
-export function warnings(doc: Document): string[] {
-  if (doc.source === "citation_abstract") {
-    return ["Abstract only: the full text was not on this page, only the paper's abstract."]
-  }
-  if (doc.partial) {
-    return [
-      "Only part of this page could be extracted. The rest may be loaded by",
-      "JavaScript or sit behind a paywall, so this may not be the whole article.",
-    ]
-  }
-  if (doc.paywall_hint) return ["The page is marked as paywalled; check that the text is complete."]
-  return []
 }
 
 function Footer(props: { frame: Frame; width: number; top: number; theme: Theme }) {

@@ -3,39 +3,9 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { parseArgs } from "../src/args"
-import * as fmt from "../src/format"
-import { actionFor } from "../src/keys"
 import { describeExtractError, extract, extractDocument, loadEngine } from "../src/engine"
 import { describeStatus, forcedContentType, load, LoadError } from "../src/source"
 import { clipStart, highlight, width, window, wrap } from "../src/wrap"
-
-const key = (name: string, extra: Partial<{ sequence: string; ctrl: boolean; shift: boolean; meta: boolean }> = {}) => ({
-  name,
-  sequence: extra.sequence ?? (name.length === 1 ? name : ""),
-  ctrl: false,
-  shift: false,
-  meta: false,
-  ...extra,
-})
-
-describe("keys", () => {
-  test("map to actions", () => {
-    expect(actionFor(key("space", { sequence: " " }))).toEqual({ type: "toggle" })
-    expect(actionFor(key("left"))).toEqual({ type: "prevSentence" })
-    expect(actionFor(key("left", { shift: true }))).toEqual({ type: "prevParagraph" })
-    expect(actionFor(key("right", { shift: true }))).toEqual({ type: "nextParagraph" })
-    expect(actionFor(key("l"))).toEqual({ type: "nextSentence" })
-    expect(actionFor(key("[", { sequence: "[" }))).toEqual({ type: "prevParagraph" })
-    expect(actionFor(key("k"))).toEqual({ type: "faster" })
-    expect(actionFor(key("down"))).toEqual({ type: "slower" })
-    expect(actionFor(key(".", { sequence: "." }))).toEqual({ type: "stepForward" })
-    expect(actionFor(key("7"))).toEqual({ type: "jump", tenth: 7 })
-    expect(actionFor(key("?", { sequence: "?", shift: true }))).toEqual({ type: "help" })
-    expect(actionFor(key("c", { ctrl: true }))).toEqual({ type: "quit" })
-    expect(actionFor(key("r", { ctrl: true }))).toBeUndefined()
-    expect(actionFor(key("x"))).toBeUndefined()
-  })
-})
 
 describe("args", () => {
   test("parse", () => {
@@ -55,18 +25,6 @@ describe("args", () => {
     expect(parseArgs(["--type=pdf", "x"])).toEqual({ kind: "read", source: "x", wpm: 300, type: "pdf" })
     expect(parseArgs(["x", "--type", "docx"]).kind).toBe("error")
     expect(parseArgs(["x", "--type"]).kind).toBe("error")
-  })
-})
-
-describe("format", () => {
-  test("durations and counts", () => {
-    expect(fmt.clock(0)).toBe("0:00")
-    expect(fmt.clock(406_400)).toBe("6:46")
-    expect(fmt.clock(3_725_000)).toBe("1:02:05")
-    expect(fmt.estimate(20_000)).toBe("under a minute")
-    expect(fmt.estimate(406_400)).toBe("about 7 min")
-    expect(fmt.estimate(3_900_000)).toBe("about 1 h 5 min")
-    expect(fmt.count(1815)).toBe("1,815")
   })
 })
 

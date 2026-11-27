@@ -1,0 +1,13 @@
+{
+  "name": "@clench/host",
+  "version": "0.1.0",
+  "description": "Host-agnostic pieces shared by clench's readers: the playback clock, input types, bounded fetching, formatting and the wording of summaries.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./format": "./src/format.ts",
+    "./fake-clock": "./src/fake-clock.ts"
+  }
+}

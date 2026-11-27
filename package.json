@@ -2,7 +2,7 @@
   "name": "clench-workspace",
   "private": true,
   "license": "MIT",
-  "workspaces": ["apps/*"],
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "build:wasm": "sh scripts/build-wasm.sh",
     "dev": "test -f crates/clench-wasm/pkg/clench_bg.wasm || sh scripts/build-wasm.sh; ./node_modules/.bin/bun apps/tui/src/main.tsx",
