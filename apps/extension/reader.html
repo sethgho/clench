@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>clench reader</title>
+    <style>
+      html, body { margin: 0; height: 100%; }
+      body { background: Canvas; color: CanvasText; font: 16px/1.5 system-ui, sans-serif; color-scheme: light dark; }
+      #reader { position: fixed; inset: 0; }
+      .notice { max-width: 32rem; margin: 20vh auto 0; padding: 0 1rem; text-align: center; }
+      .notice button { font: inherit; padding: 0.5rem 1.25rem; }
+    </style>
+  </head>
+  <body>
+    <div id="reader"></div>
+    <script type="module" src="./src/reader.ts"></script>
+  </body>
+</html>

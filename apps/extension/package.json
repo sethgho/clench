@@ -1,0 +1,19 @@
+{
+  "name": "@clench/extension",
+  "version": "0.1.0",
+  "description": "The clench Chrome extension: reads the rendered page you are looking at, one word at a time.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "@clench/host": "workspace:*",
+    "@clench/reader-web": "workspace:*",
+    "solid-js": "1.9.17"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.1.40",
+    "playwright-core": "1.65.1",
+    "vite": "8.3.0",
+    "vite-plugin-solid": "2.11.17"
+  }
+}
