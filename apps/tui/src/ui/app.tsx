@@ -182,19 +182,12 @@ export function App(props: AppProps) {
   const [help, setHelp] = createSignal(false)
   const [played, setPlayed] = createSignal(0)
   const [straight, setStraight] = createSignal(true)
-  const [blockStart, setBlockStart] = createSignal(false)
-  let lastBlock = session.frame().block
-  let lastIndex = session.frame().index
+  // The opening word is not "a new block"; only later block starts are.
+  const blockStart = () => frame().block_start && frame().index > 0
 
   const refresh = () => {
     const f = session.frame()
     setFrame(f)
-    if (f.index !== lastIndex) {
-      const entered = f.block !== lastBlock
-      lastIndex = f.index
-      lastBlock = f.block
-      setBlockStart(entered && session.context()?.before.trim() === "")
-    }
     if (f.state !== "playing") setContext(session.context())
     setPlayed(driver.playedMs)
   }

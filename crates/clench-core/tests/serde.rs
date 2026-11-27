@@ -140,6 +140,7 @@ fn frames_serialize() {
     assert_eq!(value["pivot"], "e");
     assert_eq!(value["state"], "paused");
     assert_eq!(value["block_kind"], "paragraph");
+    assert_eq!(value["block_start"], true);
     assert!(serde_json::to_value(p.context().unwrap()).is_ok());
     assert!(serde_json::to_value(p.script()).is_ok());
 }

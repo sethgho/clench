@@ -345,6 +345,7 @@ fn frame_and_context() {
     assert_eq!((f.index, f.total, f.block), (4, 6, 1));
     assert_eq!(f.block_kind, BlockKind::Paragraph);
     assert!(!f.is_marker);
+    assert!(!f.block_start);
     assert_eq!(f.state, PlayState::Paused);
     assert_eq!(f.progress, 4.0 / 6.0);
     let ctx = p.context().unwrap();
@@ -468,4 +469,21 @@ fn remaining_time_is_zero_exactly_when_finished() {
     p.advance(1);
     assert_eq!(p.state(), PlayState::Finished);
     assert_eq!(p.remaining_ms(), 0);
+}
+
+#[test]
+fn block_start_marks_the_first_token_of_each_block() {
+    let doc = Document::from_blocks(vec![
+        Block::heading(1, "Two words"),
+        Block::new(BlockKind::Code, "let x = 1;"),
+        Block::paragraph("Three more words."),
+    ]);
+    let mut p = Player::new(Script::new(&doc), Pacing::default());
+    let mut starts = Vec::new();
+    for i in 0..p.script().len() {
+        p.seek(i);
+        starts.push(p.frame().block_start);
+    }
+    // heading: 2 words, code: 1 marker, paragraph: 3 words
+    assert_eq!(starts, [true, false, true, true, false, false]);
 }

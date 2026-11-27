@@ -191,9 +191,12 @@ describe("Session", () => {
     s.nextParagraph()
     const f = s.frame()
     expect(f.is_marker).toBe(true)
+    expect(f.block_start).toBe(true)
     expect(f.before + f.pivot + f.after).toBe("[code]")
     expect(s.context()!.token).toContain("let x = 1;")
     expect(s.wordCount).toBe(3)
+    s.step(-1)
+    expect(s.frame().block_start).toBe(false)
   })
 
   test("omitted() totals what the script does not read", () => {

@@ -158,6 +158,8 @@ export interface Frame {
   block_kind: BlockKind;
   /** The token is an engine marker such as `[code]`, not author text. */
   is_marker: boolean;
+  /** The token is the first one shown from its block. */
+  block_start: boolean;
   progress: number;
   remaining_ms: number;
   state: PlayState;

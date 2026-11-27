@@ -39,6 +39,8 @@ pub struct Frame<'a> {
     pub block_kind: BlockKind,
     /// The current token is an engine marker, not author text.
     pub is_marker: bool,
+    /// The current token is the first one the script shows from its block.
+    pub block_start: bool,
     /// `index / total`, or `1.0` when finished or empty.
     pub progress: f32,
     /// Estimated time left at the current WPM, including the rest of the
@@ -397,6 +399,9 @@ impl Player {
             block: token.map_or(0, |t| t.block),
             block_kind: token.map_or(BlockKind::Paragraph, |t| t.block_kind),
             is_marker: token.is_some_and(|t| t.is_marker()),
+            block_start: token.is_some_and(|t| {
+                self.index == 0 || self.script.tokens()[self.index - 1].paragraph != t.paragraph
+            }),
             progress,
             remaining_ms: self.remaining_ms(),
             state: self.state,
