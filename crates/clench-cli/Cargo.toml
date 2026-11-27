@@ -1,0 +1,18 @@
+[package]
+name = "clench-cli"
+version = "0.1.0"
+description = "Command-line tool for fetching, extracting and inspecting clench documents."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "clench"
+path = "src/main.rs"
+
+[dependencies]
+clench-core = { path = "../clench-core", features = ["serde"] }
+clench-extract = { path = "../clench-extract" }
+clap = { version = "4", features = ["derive"] }
+ureq = { version = "3", default-features = false, features = ["rustls", "gzip"] }
+serde_json = "1"

@@ -1,9 +1,9 @@
-// Plays a few hundred words at 600, 1000 and 1500 WPM through the real `meatread` command inside a
+// Plays a few hundred words at 600, 1000 and 1500 WPM through the real `clench` command inside a
 // pseudo-terminal and compares what reached the terminal with the engine's
 // own schedule: total wall-clock time, frames drawn, and the worst lag of
 // any word behind its scheduled time.
 //
-//   bun apps/tui/scripts/measure.ts [--binary dist/meatread] [--words 300]
+//   bun apps/tui/scripts/measure.ts [--binary dist/clench] [--words 300]
 //
 // Exits non-zero if a word is late by more than LAG_LIMIT_MS or frames are
 // missing.
@@ -91,7 +91,7 @@ async function run(file: string, wpm: number) {
 }
 
 loadEngine()
-const dir = mkdtempSync(join(tmpdir(), "meatread-measure-"))
+const dir = mkdtempSync(join(tmpdir(), "clench-measure-"))
 const file = join(dir, "excerpt.txt")
 const text = excerpt(wordTarget)
 writeFileSync(file, text)

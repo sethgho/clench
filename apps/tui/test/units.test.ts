@@ -119,7 +119,7 @@ describe("source", () => {
     expect(loaded.bytes).toEqual(body)
     expect(loaded.contentType).toBe("text/html; charset=iso-8859-1")
     expect(seen!.get("user-agent")).toStartWith("Mozilla/5.0")
-    expect(seen!.get("user-agent")).not.toContain("meatread")
+    expect(seen!.get("user-agent")).not.toContain("clench")
   })
 
   test("non-2xx and network failures become readable errors", async () => {
@@ -162,7 +162,7 @@ describe("source", () => {
   })
 
   test("local files take their type from the extension, and --type wins", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "meatread-src-"))
+    const dir = mkdtempSync(join(tmpdir(), "clench-src-"))
     try {
       for (const [name, type] of [["a.md", "text/markdown"], ["a.MARKDOWN", "text/markdown"], ["a.html", "text/html"], ["a.pdf", "application/pdf"], ["a.txt", "text/plain"]] as const) {
         writeFileSync(join(dir, name), "x")
@@ -227,7 +227,7 @@ describe("engine errors", () => {
       throw new WebAssembly.RuntimeError("unreachable")
     }
     expect(() => extractDocument(new Uint8Array(), undefined, undefined, trap)).toThrow(/extractor failed on this document/)
-    expect(describeExtractError(new Error("meatread engine crashed: boom"))).toMatch(/extractor failed/)
+    expect(describeExtractError(new Error("clench engine crashed: boom"))).toMatch(/extractor failed/)
   })
 
   test("too deeply nested pages read sensibly", () => {

@@ -3,7 +3,7 @@
 Snapshots of real web pages (and one PDF) used to regression-test extraction.
 They are third-party content, saved verbatim from the URL in each `.url` file
 and kept here for local regression testing only; they are not redistributed
-as part of meatread and remain the property of their publishers. They are not
+as part of clench and remain the property of their publishers. They are not
 covered by this repository's MIT License.
 
 | Fixture | Page | Failure class it guards against |
@@ -43,5 +43,5 @@ Corrections made to the original ground truth:
   author note and syndication line were added as junk.
 
 Where output deliberately differs from the truth file, the expectation is
-recorded in `crates/meatread-extract/tests/fixtures.rs` rather than left
+recorded in `crates/clench-extract/tests/fixtures.rs` rather than left
 untested.

@@ -234,6 +234,50 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0921b3876b3a1df8a1c9f912e7f94342458022c2e84288015893d83c4d62a79"
 
 [[package]]
+name = "clench-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "clench-core",
+ "clench-extract",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
+name = "clench-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "clench-extract"
+version = "0.1.0"
+dependencies = [
+ "clench-core",
+ "dom_smoothie",
+ "encoding_rs",
+ "pdf-extract",
+ "pulldown-cmark",
+ "serde_json",
+]
+
+[[package]]
+name = "clench-wasm"
+version = "0.1.0"
+dependencies = [
+ "clench-core",
+ "clench-extract",
+ "js-sys",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -668,50 +712,6 @@ checksum = "d89e7ee0cfbedfc4da3340218492196241d89eefb6dab27de5df917a6d2e78cf"
 dependencies = [
  "cfg-if",
  "digest",
-]
-
-[[package]]
-name = "meatread-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "meatread-core",
- "meatread-extract",
- "serde_json",
- "ureq",
-]
-
-[[package]]
-name = "meatread-core"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "unicode-segmentation",
-]
-
-[[package]]
-name = "meatread-extract"
-version = "0.1.0"
-dependencies = [
- "dom_smoothie",
- "encoding_rs",
- "meatread-core",
- "pdf-extract",
- "pulldown-cmark",
- "serde_json",
-]
-
-[[package]]
-name = "meatread-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "meatread-core",
- "meatread-extract",
- "serde",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]

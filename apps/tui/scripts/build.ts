@@ -1,17 +1,17 @@
-// Builds the standalone `meatread` executable for this machine into
-// dist/meatread, with the WebAssembly engine embedded.
+// Builds the standalone `clench` executable for this machine into
+// dist/clench, with the WebAssembly engine embedded.
 import solidPlugin from "@opentui/solid/bun-plugin"
 import { existsSync } from "node:fs"
 import { join } from "node:path"
 
 const root = join(import.meta.dir, "../../..")
-const wasm = join(root, "crates/meatread-wasm/pkg/meatread_bg.wasm")
+const wasm = join(root, "crates/clench-wasm/pkg/clench_bg.wasm")
 if (!existsSync(wasm)) {
   console.error("build: the engine is not built; run `bun run build:wasm` first")
   process.exit(1)
 }
 
-const outfile = join(root, "dist/meatread")
+const outfile = join(root, "dist/clench")
 const result = await Bun.build({
   entrypoints: [join(import.meta.dir, "../src/main.tsx")],
   target: "bun",

@@ -1,11 +1,11 @@
 {
-  "name": "meatread-workspace",
+  "name": "clench-workspace",
   "private": true,
   "license": "MIT",
   "workspaces": ["apps/*"],
   "scripts": {
     "build:wasm": "sh scripts/build-wasm.sh",
-    "dev": "test -f crates/meatread-wasm/pkg/meatread_bg.wasm || sh scripts/build-wasm.sh; ./node_modules/.bin/bun apps/tui/src/main.tsx",
+    "dev": "test -f crates/clench-wasm/pkg/clench_bg.wasm || sh scripts/build-wasm.sh; ./node_modules/.bin/bun apps/tui/src/main.tsx",
     "test": "sh scripts/build-wasm.sh && cargo test --workspace --all-features && ./node_modules/.bin/bun test && ./node_modules/.bin/bun x tsc --noEmit",
     "test:bun": "./node_modules/.bin/bun test",
     "typecheck": "./node_modules/.bin/bun x tsc --noEmit",

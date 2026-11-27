@@ -1,0 +1,25 @@
+[package]
+name = "clench-wasm"
+version = "0.1.0"
+description = "WebAssembly bindings for clench: extraction and a host-clocked reading session."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["markdown", "pdf"]
+markdown = ["clench-extract/markdown"]
+pdf = ["clench-extract/pdf"]
+
+[dependencies]
+clench-core = { path = "../clench-core", features = ["serde"] }
+clench-extract = { path = "../clench-extract", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Must match the installed wasm-bindgen CLI exactly.
+wasm-bindgen = "=0.2.130"
+js-sys = "0.3"

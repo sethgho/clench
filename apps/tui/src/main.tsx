@@ -11,7 +11,7 @@ import { colorWanted, makeTheme } from "./theme"
 import { App } from "./ui/app"
 
 function fail(message: string, code = 1): never {
-  process.stderr.write(`meatread: ${message}\n`)
+  process.stderr.write(`clench: ${message}\n`)
   process.exit(code)
 }
 
@@ -32,11 +32,11 @@ async function main(): Promise<void> {
     return
   }
   if (args.kind === "version") {
-    process.stdout.write(`meatread ${pkg.version}\n`)
+    process.stdout.write(`clench ${pkg.version}\n`)
     return
   }
   if (args.kind === "error") fail(`${args.message}\n\n${USAGE}`, 2)
-  if (!process.stdout.isTTY) fail("meatread shows text one word at a time and needs a terminal to draw on")
+  if (!process.stdout.isTTY) fail("clench shows text one word at a time and needs a terminal to draw on")
 
   const fetching = isUrl(args.source)
   if (fetching) process.stderr.write(`fetching ${args.source} …`)
@@ -90,7 +90,7 @@ async function main(): Promise<void> {
   })
   await render(() => <App doc={doc} session={session} theme={makeTheme(colorWanted())} />, renderer)
   await renderer.closed
-  if (farewell) process.stderr.write(`meatread: ${farewell}\n`)
+  if (farewell) process.stderr.write(`clench: ${farewell}\n`)
   process.exit(status)
 }
 

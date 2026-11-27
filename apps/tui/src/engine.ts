@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs"
-import wasmPath from "../../../crates/meatread-wasm/pkg/meatread_bg.wasm" with { type: "file" }
-import { extract as rawExtract, initSync } from "../../../crates/meatread-wasm/pkg/meatread.js"
-import type { Document } from "../../../crates/meatread-wasm/pkg/meatread.js"
+import wasmPath from "../../../crates/clench-wasm/pkg/clench_bg.wasm" with { type: "file" }
+import { extract as rawExtract, initSync } from "../../../crates/clench-wasm/pkg/clench.js"
+import type { Document } from "../../../crates/clench-wasm/pkg/clench.js"
 
-export { extract, Session, version as engineVersion } from "../../../crates/meatread-wasm/pkg/meatread.js"
-export type { BlockKind, Context, Document, Frame, Omitted, PlayState, Settings } from "../../../crates/meatread-wasm/pkg/meatread.js"
+export { extract, Session, version as engineVersion } from "../../../crates/clench-wasm/pkg/clench.js"
+export type { BlockKind, Context, Document, Frame, Omitted, PlayState, Settings } from "../../../crates/clench-wasm/pkg/clench.js"
 
 let loaded = false
 
@@ -12,7 +12,7 @@ let loaded = false
 export function loadEngine(): void {
   if (loaded) return
   // A `type: "file"` import evaluates to the file's path, but TypeScript
-  // types it from the generated `meatread_bg.wasm.d.ts` next to it.
+  // types it from the generated `clench_bg.wasm.d.ts` next to it.
   initSync({ module: readFileSync(wasmPath as unknown as string) })
   loaded = true
 }
@@ -20,7 +20,7 @@ export function loadEngine(): void {
 /** Whether `error` means the engine instance crashed and must not be reused. */
 export function isEngineCrash(error: unknown): boolean {
   if (error instanceof WebAssembly.RuntimeError) return true
-  return error instanceof Error && error.message.startsWith("meatread engine crashed:")
+  return error instanceof Error && error.message.startsWith("clench engine crashed:")
 }
 
 /** The extractor could not read the document; the message is for the reader. */

@@ -186,8 +186,8 @@ export function describeStatus(status: number, url: string): string {
   if (status === 401 || status === 403) {
     return (
       `${url} answered HTTP ${status}: the site refused the request. Many sites block ` +
-      `programs that are not a full web browser, or need a login; meatread does not try to get around that. ` +
-      `If you can open the page in a browser, save it and run meatread on the file.`
+      `programs that are not a full web browser, or need a login; clench does not try to get around that. ` +
+      `If you can open the page in a browser, save it and run clench on the file.`
     )
   }
   if (status === 404 || status === 410) return `${url} answered HTTP ${status}: no such page`

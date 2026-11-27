@@ -13,5 +13,5 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["apps/tui/src", "apps/tui/test", "apps/tui/scripts", "crates/meatread-wasm/test"]
+  "include": ["apps/tui/src", "apps/tui/test", "apps/tui/scripts", "crates/clench-wasm/test"]
 }

@@ -1,9 +1,9 @@
 import { DOC_TYPES, type DocType } from "./source"
 
-export const USAGE = `meatread: speed-read any link yourself, one word at a time.
+export const USAGE = `clench: speed-read any link yourself, one word at a time.
 
 Usage:
-  meatread <url | file | -> [--wpm <n>] [--type <type>]
+  clench <url | file | -> [--wpm <n>] [--type <type>]
 
   <url>       an http(s) address to fetch
   <file>      a saved HTML, Markdown, text or PDF file
