@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          wasm-tools: "false"
+          bun: "false"
+          cache-key: rust
+      - run: cargo fmt --check
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --workspace --all-features
+
+  core-portability:
+    name: Core builds (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: thumbv7em
+            target: thumbv7em-none-eabihf
+            args: ""
+          - name: thumbv7em + serde
+            target: thumbv7em-none-eabihf
+            args: --features serde
+          - name: wasm32
+            target: wasm32-unknown-unknown
+            args: ""
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          rust-targets: thumbv7em-none-eabihf
+          wasm-tools: "false"
+          bun: "false"
+          cache-key: core-${{ matrix.target }}
+      - run: cargo build -p clench-core --target ${{ matrix.target }} ${{ matrix.args }}
+
+  tui:
+    name: Bun (wasm build, TUI tests, typecheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          cache-key: tui
+      - run: bun install --frozen-lockfile
+      - run: bun run test

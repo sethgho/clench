@@ -2,6 +2,8 @@
 
 # clench
 
+[![CI](https://github.com/sethgho/clench/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sethgho/clench/actions/workflows/ci.yml)
+
 Speed-read any link yourself, one word at a time.
 
 Don't have an AI summarize everything: read the post yourself, meat bag.
