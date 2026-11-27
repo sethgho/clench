@@ -1,0 +1,18 @@
+{
+  "name": "@clench/web",
+  "version": "0.1.0",
+  "description": "The clench web reader: a static page that runs the engine in the browser.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "@clench/host": "workspace:*",
+    "@clench/reader-web": "workspace:*",
+    "solid-js": "1.9.17"
+  },
+  "devDependencies": {
+    "playwright-core": "1.65.1",
+    "vite": "8.3.0",
+    "vite-plugin-solid": "2.11.17"
+  }
+}

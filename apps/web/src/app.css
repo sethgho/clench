@@ -1,0 +1,105 @@
+:root {
+  --bg: #FEF6E2;
+  --surface: #FFFBF1;
+  --text: #1B1411;
+  --muted: #6A5B4E;
+  --line: #D9C9A8;
+  --accent: #D02519;
+  --on-accent: #FEF6E2;
+  --error-bg: #FBE0DC;
+  --error: #8E1A11;
+  --focus: #1B1411;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #0E0B0A;
+  --surface: #1C1714;
+  --text: #FEF6E2;
+  --muted: #B3A58F;
+  --line: #4A4038;
+  --accent: #EF4A3A;
+  --on-accent: #0E0B0A;
+  --error-bg: #3A120D;
+  --error: #FFB8AE;
+  --focus: #FEF6E2;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E0B0A;
+    --surface: #1C1714;
+    --text: #FEF6E2;
+    --muted: #B3A58F;
+    --line: #4A4038;
+    --accent: #EF4A3A;
+    --on-accent: #0E0B0A;
+    --error-bg: #3A120D;
+    --error: #FFB8AE;
+    --focus: #FEF6E2;
+    color-scheme: dark;
+  }
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 400 1rem/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+}
+[hidden] { display: none !important; }
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.shell { max-width: 46rem; margin: 0 auto; padding: 1rem 1rem 2rem; }
+.masthead { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; margin-bottom: 1rem; }
+.masthead .logo { width: 120px; height: auto; border-radius: 12px; background: #000; flex: none; }
+.masthead > div { flex: 1 1 12rem; min-width: 0; }
+.masthead h1 { margin: 0; font-size: 2.25rem; line-height: 1; letter-spacing: -0.02em; color: var(--accent); font-weight: 800; }
+.tagline { margin: 0.25rem 0 0; color: var(--muted); }
+button, .button, select, input, textarea { font: inherit; color: var(--text); }
+button, .button {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 0 1rem; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line); cursor: pointer;
+  text-decoration: none; touch-action: manipulation;
+}
+button:hover, .button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 650; }
+button:disabled { opacity: 0.55; cursor: default; }
+.theme { flex: none; font-size: 0.9rem; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 1rem; margin: 0 0 1rem; }
+.panel h2 { margin: 0 0 0.5rem; font-size: 1.15rem; }
+.panel label { display: block; margin-bottom: 0.35rem; color: var(--muted); font-size: 0.95rem; }
+.panel label.inline { display: inline; margin: 0; }
+textarea, input[type="url"], select {
+  width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.75rem; min-height: 44px;
+}
+textarea { resize: vertical; min-height: 8rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9rem; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
+.row select { width: auto; flex: 1 1 10rem; }
+.row input[type="url"] { flex: 1 1 14rem; width: auto; min-width: 0; }
+.panel form.row { margin-top: 0; }
+.drop { border: 2px dashed var(--line); border-radius: 12px; padding: 1rem; text-align: center; }
+.drop p { margin: 0 0 0.6rem; }
+.drop.over { border-color: var(--accent); }
+.note { margin: 0.6rem 0 0; color: var(--muted); font-size: 0.9rem; }
+.error { background: var(--error-bg); color: var(--error); border-radius: 10px; padding: 0.75rem 1rem; margin: 0 0 1rem; overflow-wrap: anywhere; }
+.busy { min-height: 1.5em; margin: 0 0 0.5rem; color: var(--muted); }
+.busy:empty { min-height: 0; margin: 0; }
+.colophon { color: var(--muted); font-size: 0.9rem; margin-top: 1.5rem; }
+.colophon p { margin: 0.25rem 0; }
+.reader-host { position: fixed; inset: 0; height: 100vh; height: 100dvh; }
+.drop-overlay {
+  position: fixed; inset: 0.5rem; display: grid; place-items: center; pointer-events: none;
+  border: 3px dashed var(--accent); border-radius: 16px; background: color-mix(in srgb, var(--bg) 85%, transparent);
+  font-size: 1.5rem; font-weight: 700; color: var(--accent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  button, .button { transition: border-color 120ms, background-color 120ms; }
+}
+.panel label.button { display: inline-flex; margin: 0; color: var(--text); font-size: 1rem; }
+.drop:focus-within label.button { outline: 3px solid var(--focus); outline-offset: 2px; }

@@ -10,7 +10,10 @@
     "test:bun": "./node_modules/.bin/bun test",
     "typecheck": "./node_modules/.bin/bun x tsc --noEmit",
     "measure": "./node_modules/.bin/bun apps/tui/scripts/measure.ts",
-    "build": "sh scripts/build-wasm.sh && ./node_modules/.bin/bun apps/tui/scripts/build.ts"
+    "build": "sh scripts/build-wasm.sh && ./node_modules/.bin/bun apps/tui/scripts/build.ts",
+    "build:web": "sh scripts/build-wasm.sh && vite build apps/web",
+    "dev:web": "test -f crates/clench-wasm/pkg/clench_bg.wasm || sh scripts/build-wasm.sh; vite apps/web",
+    "e2e": "node apps/web/e2e/check.ts"
   },
   "devDependencies": {
     "@types/bun": "1.4.4",

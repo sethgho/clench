@@ -13,5 +13,5 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["apps/tui/src", "apps/tui/test", "apps/tui/scripts", "packages/host/src", "packages/host/test", "crates/clench-wasm/test"]
+  "include": ["apps/tui/src", "apps/tui/test", "apps/tui/scripts", "packages/host/src", "packages/host/test", "packages/reader-web/src", "packages/reader-web/test", "apps/web/src", "apps/web/test", "apps/web/e2e", "apps/web/vite.config.ts", "crates/clench-wasm/test"]
 }
