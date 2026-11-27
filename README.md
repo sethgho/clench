@@ -51,8 +51,25 @@ older than 1.3.14 cannot run OpenTUI, and the scripts call the pinned one.
 | `bun run build` | Standalone binary in `dist/clench` |
 | `bun run build:web` | Engine plus the static web reader in `apps/web/dist` |
 | `bun run dev:web` | Web reader dev server |
+| `bun run ext:build` | Engine plus the Chrome extension in `apps/extension/dist` |
+| `bun run ext:e2e` | Build the extension and test it in Chromium with Playwright (runs in CI) |
 | `bun run e2e` | Check `apps/web/dist` in the installed Google Chrome (`--url <site>` checks a deployed copy, `--shots <dir>` saves screenshots); needs network, not run in CI |
 | `bun run measure` | Play a few hundred words in a pseudo-terminal and compare wall time and frames with the engine's schedule |
+
+## Chrome extension
+
+`apps/extension` is a Manifest V3 extension that opens the reader over the
+page you are on, using the page as your browser rendered it. That covers
+JavaScript-rendered pages, pages you are logged in to and sites that block
+non-browser fetches. It is fully local, asks only for `activeTab`, `scripting`
+and `storage`, and ships the engine inside the package.
+
+```sh
+bun run ext:build      # then Load unpacked: apps/extension/dist
+```
+
+Click the toolbar button or press Alt+Shift+R. See
+[apps/extension/README.md](apps/extension/README.md).
 
 ## Reading
 
