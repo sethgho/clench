@@ -2,6 +2,7 @@
 //
 //   node apps/web/e2e/check.ts                 serves apps/web/dist at /clench/ and checks it
 //   node apps/web/e2e/check.ts --url <site>    checks a deployed copy instead
+//   --dir <path>                               serves another build (e.g. a downloaded Pages artifact)
 //   --shots <dir>                              also saves screenshots there
 //   --headed                                   shows the browser
 //
@@ -317,7 +318,7 @@ async function run(browser: Browser, base: string): Promise<void> {
 }
 
 const target = option("--url")
-const local = target ? undefined : await serve(join(root, "apps/web/dist"))
+const local = target ? undefined : await serve(option("--dir") ?? join(root, "apps/web/dist"))
 const base = target ?? local!.url
 console.log(`checking ${base}`)
 const browser = await chromium.launch({ channel: "chrome", headless: !headed })
