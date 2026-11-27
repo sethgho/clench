@@ -1,0 +1,15 @@
+{
+  "name": "@clench/reader-web",
+  "version": "0.1.0",
+  "description": "The clench reader for browsers: a self-contained view that mounts into any element.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@clench/host": "workspace:*",
+    "solid-js": "1.9.17"
+  }
+}

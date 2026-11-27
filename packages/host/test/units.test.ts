@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import * as fmt from "../src/format"
-import { detectTextType, forcedContentType, isUrl, typeForFile, typeForName } from "../src/input"
+import { detectTextType, forcedContentType, isUrl, typeForFile, typeForName, typeForUrl } from "../src/input"
 import { actionFor } from "../src/keys"
 import { finishedSummary, notRead, siteLabel, warnings } from "../src/summary"
 import { docFrom } from "./engine"
@@ -92,6 +92,16 @@ describe("input", () => {
     expect(typeForFile("readme", "text/x-markdown")).toBe("text/markdown")
     expect(typeForFile("data.bin", "application/octet-stream")).toBeUndefined()
     expect(typeForFile("x", "text/plain; charset=utf-8")).toBe("text/plain")
+  })
+
+  test("typeForUrl lets a path's extension refine a generic Content-Type", () => {
+    const raw = "https://raw.githubusercontent.com/o/r/main/README.md"
+    expect(typeForUrl(raw, "text/plain; charset=utf-8")).toBe("text/markdown; charset=utf-8")
+    expect(typeForUrl(raw, undefined)).toBe("text/markdown")
+    expect(typeForUrl("https://x.y/a.pdf", "application/octet-stream")).toBe("application/pdf")
+    expect(typeForUrl("https://x.y/post", "text/plain")).toBe("text/plain")
+    expect(typeForUrl("https://x.y/post.md", "text/html; charset=utf-8")).toBe("text/html; charset=utf-8")
+    expect(typeForUrl("https://x.y/notes.txt?x=1", undefined)).toBe("text/plain")
   })
 
   test("detectTextType tells HTML, Markdown and prose apart", () => {

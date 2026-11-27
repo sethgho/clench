@@ -75,3 +75,24 @@ export function detectTextType(text: string): string {
   if (/(\*\*|__)\S[^*\n]*\S\1/.test(text)) signals += 1
   return signals >= 2 ? MEDIA_TYPES.md : MEDIA_TYPES.text
 }
+
+/**
+ * The Content-Type to extract a downloaded file with. Static file hosts often
+ * serve Markdown as `text/plain` or bytes as `application/octet-stream`; for
+ * those (or none at all), a known extension in the URL's path decides, and
+ * any declared charset is kept.
+ */
+export function typeForUrl(url: string, declared: string | undefined): string | undefined {
+  const media = declared?.split(";")[0]?.trim().toLowerCase()
+  if (media && media !== "text/plain" && media !== "application/octet-stream") return declared
+  let path: string
+  try {
+    path = decodeURIComponent(new URL(url).pathname)
+  } catch {
+    return declared
+  }
+  const byName = typeForName(path)
+  if (!byName) return declared
+  const charset = declared?.match(/;\s*charset\s*=\s*("[^"]*"|[^;\s]+)/i)?.[0]
+  return byName + (charset && byName !== MEDIA_TYPES.pdf ? charset : "")
+}
