@@ -49,6 +49,9 @@ older than 1.3.14 cannot run OpenTUI, and the scripts call the pinned one.
 | `bun run dev <source>` | Run the reader from source |
 | `bun run test` | Engine build, `cargo test`, Bun tests and `tsc --noEmit` |
 | `bun run build` | Standalone binary in `dist/clench` |
+| `bun run build:web` | Engine plus the static web reader in `apps/web/dist` |
+| `bun run dev:web` | Web reader dev server |
+| `bun run e2e` | Check `apps/web/dist` in the installed Google Chrome (`--url <site>` checks a deployed copy, `--shots <dir>` saves screenshots); needs network, not run in CI |
 | `bun run measure` | Play a few hundred words in a pseudo-terminal and compare wall time and frames with the engine's schedule |
 
 ## Reading
@@ -86,6 +89,30 @@ Code blocks and tables are not read word by word; they show as
 text. Colours come from the terminal's own palette and the background is
 never painted; `NO_COLOR` turns colour off.
 
+## Web
+
+**<https://sethgho.github.io/clench/>** runs the same engine in your
+browser. It is a static page: there is no server behind it, nothing you read
+is sent anywhere, and it works offline after the first visit.
+
+- **Paste** text, HTML or Markdown (the type is detected, or choose it), or
+  **drop or pick a file** (HTML, Markdown, text, PDF). This always works.
+- **A web address** works only when the site lets other pages read it
+  ([CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS)),
+  for example raw files on `raw.githubusercontent.com`. Most article pages do
+  not, and clench has no server or proxy to fetch them, so it says so and
+  asks you to paste or drop the page instead. A Chrome extension that reads
+  the open tab is planned ([#2](https://github.com/sethgho/clench/issues/2)).
+- **Links:** `#text=<text>` opens text carried in the URL fragment, which the
+  browser never sends to a server; `?url=<address>` tries a fetch.
+- **Share:** installed as an app in Chrome (desktop or Android), it can
+  appear as a share target. Firefox and Safari, including every browser on
+  iOS, do not support web share targets.
+
+Keys are the terminal reader's (no ctrl-z; `q` closes the reader). On touch
+screens, tap the word to play or pause and swipe for the next or previous
+sentence. Speed and theme are remembered in this browser.
+
 ## Architecture
 
 All reading logic is in Rust so that every host behaves the same:
@@ -105,7 +132,12 @@ All reading logic is in Rust so that every host behaves the same:
   (`scripts/build-wasm.sh --no-default-features --features markdown`).
 - **Hosts**: `apps/tui`, the terminal reader (Bun, OpenTUI, SolidJS), is a
   thin view: it fetches bytes, owns the clock, forwards keys and draws
-  frames. `crates/clench-cli` is a native debugging tool (below).
+  frames. `apps/web` is the web reader (Vite, SolidJS); the reader view it
+  mounts is `packages/reader-web`, a self-contained `mount(element, doc)`
+  that other browser hosts can reuse. `packages/host` holds what the hosts
+  share: the clock driver, key map, input types, bounded fetching and the
+  wording of the ready and finished screens. `crates/clench-cli` is a
+  native debugging tool (below).
 
 The core API, tokenization rules and pacing formula are documented in
 rustdoc (`cargo doc --workspace --open`).
