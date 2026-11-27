@@ -47,7 +47,7 @@ function serviceWorker(): Plugin {
 
 export default defineConfig({
   root: here,
-  base: process.env.CLENCH_BASE ?? "/clench/",
+  base: process.env.CLENCH_BASE ?? "/",
   plugins: [solid(), serviceWorker()],
   build: {
     outDir: "dist",

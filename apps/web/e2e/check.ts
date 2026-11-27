@@ -1,6 +1,6 @@
 // Drives the built web reader in the locally installed Google Chrome.
 //
-//   node apps/web/e2e/check.ts                 serves apps/web/dist at /clench/ and checks it
+//   node apps/web/e2e/check.ts                 serves apps/web/dist at / and checks it
 //   node apps/web/e2e/check.ts --url <site>    checks a deployed copy instead
 //   --dir <path>                               serves another build (e.g. a downloaded Pages artifact)
 //   --shots <dir>                              also saves screenshots there
@@ -33,15 +33,11 @@ const TYPES: Record<string, string> = {
   ".webmanifest": "application/manifest+json",
 }
 
-/** A static server for the build, mounted at /clench/ like GitHub Pages. */
+/** A static server for the build, mounted at the site root. */
 function serve(dir: string): Promise<{ server: Server; url: string }> {
   const server = createServer((req, res) => {
     const path = new URL(req.url ?? "/", "http://x").pathname
-    if (!path.startsWith("/clench/")) {
-      res.writeHead(404).end()
-      return
-    }
-    let file = normalize(join(dir, decodeURIComponent(path.slice("/clench/".length))))
+    let file = normalize(join(dir, decodeURIComponent(path.slice(1))))
     if (!file.startsWith(dir)) {
       res.writeHead(403).end()
       return
@@ -57,7 +53,7 @@ function serve(dir: string): Promise<{ server: Server; url: string }> {
   return new Promise((resolve) => server.listen(0, "127.0.0.1", () => {
     const address = server.address()
     const port = typeof address === "object" && address ? address.port : 0
-    resolve({ server, url: `http://127.0.0.1:${port}/clench/` })
+    resolve({ server, url: `http://127.0.0.1:${port}/` })
   }))
 }
 

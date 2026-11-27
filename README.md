@@ -91,7 +91,7 @@ never painted; `NO_COLOR` turns colour off.
 
 ## Web
 
-**<https://sethgho.github.io/clench/>** runs the same engine in your
+**<https://clench.sethgholson.com/>** runs the same engine in your
 browser. It is a static page: there is no server behind it, nothing you read
 is sent anywhere, and it works offline after the first visit.
 

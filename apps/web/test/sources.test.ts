@@ -13,7 +13,7 @@ import {
   type StorageLike,
 } from "../src/sources"
 
-const BASE = "https://sethgho.github.io/clench/"
+const BASE = "https://clench.sethgholson.com/"
 
 describe("launch links", () => {
   test("#text= carries text in the fragment", () => {
