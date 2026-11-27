@@ -67,3 +67,19 @@ jobs:
           cache-key: tui
       - run: bun install --frozen-lockfile
       - run: bun run test
+
+  extension:
+    name: Chrome extension (build, browser test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          cache-key: extension
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: bun install --frozen-lockfile
+      - run: bun run ext:build
+      - run: ./node_modules/.bin/playwright-core install --with-deps chromium
+      - run: bun run ext:e2e
