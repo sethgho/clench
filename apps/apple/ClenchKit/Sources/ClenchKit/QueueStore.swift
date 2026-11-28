@@ -78,6 +78,14 @@ public struct QueueStore: Sendable {
         }
     }
 
+    /// Stores `data` as the content of the item with `id`, replacing any.
+    public func setContent(id: UUID, data: Data, contentType: String?) throws {
+        try FileManager.default.createDirectory(at: contentDirectory, withIntermediateDirectories: true)
+        let name = id.uuidString
+        try data.write(to: contentDirectory.appending(path: name), options: .atomic)
+        try update(id: id) { $0.content = QueueItem.StoredContent(file: name, contentType: contentType) }
+    }
+
     /// Removes the item and its stored content.
     public func remove(id: UUID) throws {
         let removed: QueueItem? = try coordinated(writing: true) {
