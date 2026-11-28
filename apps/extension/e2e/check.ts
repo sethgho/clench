@@ -81,6 +81,17 @@ async function readerFrame(page: Page): Promise<Frame> {
   throw new Error("the reader frame never appeared")
 }
 
+// Playwright learns about a detached frame through a separate protocol event, so the
+// frame list can trail the DOM removal of the iframe's host.
+async function readerFrameGone(page: Page): Promise<void> {
+  const deadline = Date.now() + 10_000
+  while (Date.now() < deadline) {
+    if (page.frames().every((f) => !f.url().startsWith("chrome-extension://"))) return
+    await page.waitForTimeout(25)
+  }
+  throw new Error("reader frame still present")
+}
+
 async function overlayCount(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.children.length)
 }
@@ -154,7 +165,7 @@ async function main(): Promise<void> {
       await page.evaluate(() => window.scrollTo(0, 0))
       await page.keyboard.press("Escape")
       await page.waitForFunction((n) => document.documentElement.children.length === n, before)
-      assert(page.frames().every((f) => !f.url().startsWith("chrome-extension://")), "reader frame still present")
+      await readerFrameGone(page)
       const state = await page.evaluate(() => ({ focus: document.activeElement?.id, y: Math.round(window.scrollY) }))
       assert(state.focus === "note", `focus was ${state.focus}`)
       assert(state.y === 700, `scrollY was ${state.y}`)
