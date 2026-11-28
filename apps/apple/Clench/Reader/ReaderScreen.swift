@@ -51,6 +51,7 @@ struct ReaderScreen: View {
         .task(id: itemID) { await load() }
         .sheet(isPresented: $settings) {
             SettingsView(onClose: { settings = false })
+                .presentationBackground(colors.bg)
                 .clenchTheme(model.preferences)
         }
     }
@@ -69,7 +70,7 @@ struct ReaderScreen: View {
             MacReaderView(reader: reader, title: title, onClose: onClose)
             #else
             GeometryReader { geo in
-                switch ReaderLayout(size: geo.size, hinge: hinge) {
+                switch layout(for: geo.size) {
                 case .stand:
                     StandReaderView(reader: reader, title: title)
                 case .page:
@@ -81,9 +82,20 @@ struct ReaderScreen: View {
                         onClose: onClose, onSettings: { settings = true })
                 }
             }
-            .ignoresSafeArea()
+            .ignoresSafeArea(edges: .vertical)
             #endif
         }
+    }
+
+    private func layout(for size: CGSize) -> ReaderLayout {
+        #if DEBUG
+        switch Demo.value("-clench-layout") {
+        case "page": return .page
+        case "stand": return .stand
+        default: break
+        }
+        #endif
+        return ReaderLayout(size: size, hinge: hinge)
     }
 
     private func failure(_ message: String) -> some View {
@@ -119,6 +131,12 @@ struct ReaderScreen: View {
                 reader.seek(item.position.index)
             }
             phase = .ready(reader)
+            #if DEBUG
+            if Demo.screen == "end" {
+                reader.seek(Int(reader.outline.tokens) - 1)
+                reader.play()
+            }
+            #endif
         } catch {
             phase = .failed(DocumentLoader.describe(error))
         }

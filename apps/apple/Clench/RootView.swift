@@ -9,6 +9,8 @@ struct RootView: View {
     @Environment(\.colors) private var colors
     @State private var settings = false
     @State private var pasting = false
+    @Environment(\.colorScheme) private var colorScheme
+    private var systemDark: Bool { colorScheme == .dark }
 
     var body: some View {
         @Bindable var model = model
@@ -33,11 +35,15 @@ struct RootView: View {
                 SettingsView(onClose: { settings = false })
                     .hideNavigationBar()
             }
+            .presentationBackground(Color(model.preferences.palette(systemDark: systemDark).bg))
             .clenchTheme(model.preferences)
         }
         .sheet(isPresented: $pasting) {
             PasteView().clenchTheme(model.preferences)
         }
+        #if DEBUG
+        .onAppear { openDemoScreen() }
+        #endif
         .alert("clench", isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("OK") { model.message = nil }
         } message: {
@@ -45,6 +51,20 @@ struct RootView: View {
         }
     }
 }
+
+#if DEBUG
+extension RootView {
+    private func openDemoScreen() {
+        guard let screen = Demo.screen else { return }
+        let current = model.shelves().current
+        switch screen {
+        case "reader", "end": model.reading = current?.id
+        case "settings": settings = true
+        default: break
+        }
+    }
+}
+#endif
 
 extension UUID: @retroactive Identifiable {
     public var id: UUID { self }

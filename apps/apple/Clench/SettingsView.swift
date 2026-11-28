@@ -118,7 +118,7 @@ struct SettingsView: View {
                 .foregroundStyle(colors.ink)
             HStack(spacing: 4) {
                 stepButton("−", label: "Slower") { wpm.wrappedValue = max(100, wpm.wrappedValue - 10) }
-                Text("\(wpm.wrappedValue) wpm")
+                Text(verbatim: "\(wpm.wrappedValue) wpm")
                     .font(.plexMono(15, .medium, relativeTo: .body))
                     .foregroundStyle(colors.ink)
                     .monospacedDigit()

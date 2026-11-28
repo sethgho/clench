@@ -94,7 +94,17 @@ struct LibraryView: View {
             }
             .clenchTheme(model.preferences)
         }
-        .onAppear { clipboard.start() }
+        .onAppear {
+            clipboard.start()
+            #if DEBUG
+            if Demo.screen == "peek" { peek = model.shelves().current }
+            if Demo.screen == "finished" { showFinished = true }
+            if Demo.screen == "search" {
+                searching = true
+                search = "nature"
+            }
+            #endif
+        }
     }
 
     private var header: some View {

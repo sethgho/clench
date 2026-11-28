@@ -51,9 +51,9 @@ struct PhoneReaderView: View {
                 if let sentence = reader.sentence {
                     SentenceText(sentence: sentence, size: 15)
                         .frame(width: min(302, size.width - 88))
-                        .frame(height: max(0, size.height - mid - 80 - 200), alignment: .top)
+                        .frame(height: max(0, size.height - mid - 80 - 170), alignment: .top)
                         .clipped()
-                        .position(x: size.width / 2, y: mid + 80 + max(0, size.height - mid - 80 - 200) / 2)
+                        .position(x: size.width / 2, y: mid + 80 + max(0, size.height - mid - 80 - 170) / 2)
                         .chrome(paused)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
@@ -105,7 +105,7 @@ struct PhoneReaderView: View {
                 }
             }
         }
-        .ignoresSafeArea()
+        .ignoresSafeArea(edges: .vertical)
         .statusBarHiddenIfAvailable(!paused)
         .persistentSystemOverlaysHiddenIfAvailable(!paused)
         .sensoryFeedback(.selection, trigger: Int(reader.frame.wpm) / 50)
@@ -116,6 +116,18 @@ struct PhoneReaderView: View {
         }
         .onAppear {
             gesture.config.touch = preferences.touch
+            #if DEBUG
+            switch Demo.readerState {
+            case "dial": dialShown = true
+            case "strip": stripShown = true
+            case "scrub":
+                let t = Int(Double(reader.ticks.count) * 0.4)
+                scrubTick = t
+                reader.seek(tick: t)
+            case "playing": reader.play()
+            default: break
+            }
+            #endif
             guard showsIntro, !introDone else { return }
             if reduceMotion {
                 opened = true

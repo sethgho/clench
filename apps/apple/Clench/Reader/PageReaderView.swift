@@ -84,7 +84,7 @@ struct PageReaderView: View {
                     .allowsHitTesting(false)
             }
         }
-        .ignoresSafeArea()
+        .ignoresSafeArea(edges: .vertical)
         .sensoryFeedback(.selection, trigger: Int(reader.frame.wpm) / 50)
         .onAppear { gesture.config.touch = preferences.touch }
     }
@@ -174,7 +174,7 @@ struct StandReaderView: View {
                 .position(x: geo.size.width / 2, y: top + (geo.size.height - top) / 2)
             }
         }
-        .ignoresSafeArea()
+        .ignoresSafeArea(edges: .vertical)
     }
 }
 
@@ -190,7 +190,7 @@ struct SpeedSlider: View {
             let x = (1 - scale.fraction(wpm)) * w
             ZStack(alignment: .topLeading) {
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    Text("\(wpm)").font(.plexMonoFixed(28, .medium)).foregroundStyle(colors.ink)
+                    Text(verbatim: "\(wpm)").font(.plexMonoFixed(28, .medium)).foregroundStyle(colors.ink)
                     Text("wpm").font(.plexMonoFixed(11)).foregroundStyle(colors.mute)
                 }
                 .fixedSize()
@@ -206,9 +206,9 @@ struct SpeedSlider: View {
                 .offset(y: 48)
                 Rectangle().fill(colors.accent).frame(width: 3, height: 36).offset(x: x - 1.5, y: 42)
                 HStack {
-                    Text("\(scale.range.lowerBound)")
+                    Text(verbatim: "\(scale.range.lowerBound)")
                     Spacer()
-                    Text("\(scale.range.upperBound)")
+                    Text(verbatim: "\(scale.range.upperBound)")
                 }
                 .font(.plexMono(11, relativeTo: .caption2)).foregroundStyle(colors.mute)
                 .offset(y: 88)

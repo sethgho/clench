@@ -93,12 +93,12 @@ struct SpeedDial: View {
                         .frame(height: row)
                 }
             }
-            Text("\(scale.range.upperBound)")
+            Text(verbatim: "\(scale.range.upperBound)")
                 .font(.plexMono(11, relativeTo: .caption2))
                 .foregroundStyle(colors.mute)
                 .padding(.horizontal, 8)
                 .offset(y: -20)
-            Text("\(scale.range.lowerBound)")
+            Text(verbatim: "\(scale.range.lowerBound)")
                 .font(.plexMono(11, relativeTo: .caption2))
                 .foregroundStyle(colors.mute)
                 .padding(.horizontal, 8)
@@ -118,7 +118,7 @@ struct SpeedDial: View {
 
     private var label: some View {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
-            Text("\(wpm)").font(.plexMonoFixed(28, .medium)).foregroundStyle(colors.ink)
+            Text(verbatim: "\(wpm)").font(.plexMonoFixed(28, .medium)).foregroundStyle(colors.ink)
             Text("wpm").font(.plexMonoFixed(11)).foregroundStyle(colors.mute)
         }
         .monospacedDigit()

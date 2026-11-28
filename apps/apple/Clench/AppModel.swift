@@ -43,6 +43,9 @@ final class AppModel {
                 message = "The queue is unavailable: \(error.localizedDescription)"
             }
         }
+        #if DEBUG
+        if let store = self.store { Demo.seed(store, wpm: preferences.defaultWpm) }
+        #endif
         reload()
     }
 
