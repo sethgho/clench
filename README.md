@@ -52,6 +52,8 @@ older than 1.3.14 cannot run OpenTUI, and the scripts call the pinned one.
 | `bun run build:web` | Engine plus the static web reader in `apps/web/dist` |
 | `bun run dev:web` | Web reader dev server |
 | `bun run ext:build` | Engine plus the Chrome extension in `apps/extension/dist` |
+| `bun run apple:xcframework` | Build the engine for iOS and macOS into `ClenchCore.xcframework` plus Swift bindings |
+| `bun run apple:test` | Build the macOS slice and run the Swift package tests |
 | `bun run ext:e2e` | Build the extension and test it in Chromium with Playwright (runs in CI) |
 | `bun run e2e` | Check `apps/web/dist` in the installed Google Chrome (`--url <site>` checks a deployed copy, `--shots <dir>` saves screenshots); needs network, not run in CI |
 | `bun run measure` | Play a few hundred words in a pseudo-terminal and compare wall time and frames with the engine's schedule |
@@ -70,6 +72,25 @@ bun run ext:build      # then Load unpacked: apps/extension/dist
 
 Click the toolbar button or press Alt+Shift+R. See
 [apps/extension/README.md](apps/extension/README.md).
+
+## iOS and macOS
+
+`apps/apple` is a SwiftUI app for iOS 18+ and macOS 15+ with a share
+extension: share a page, link or text to clench and choose **Read now** or
+**Add to queue**. The engine is linked natively through UniFFI bindings
+(`crates/clench-ffi`), so the app runs the same Rust code as every other
+host. The interface is a placeholder for now.
+
+```sh
+rustup target add aarch64-apple-ios aarch64-apple-ios-sim aarch64-apple-darwin
+bun run apple:xcframework                        # engine + Swift bindings
+xcodegen generate --spec apps/apple/project.yml  # then open apps/apple/Clench.xcodeproj
+bun run apple:test                               # Swift tests (macOS)
+```
+
+It builds unsigned without any setup; to sign with your own team and
+bundle ID prefix, copy `apps/apple/Config/Local.xcconfig.example` to
+`Local.xcconfig`. See [apps/apple/README.md](apps/apple/README.md).
 
 ## Reading
 
@@ -142,6 +163,10 @@ All reading logic is in Rust so that every host behaves the same:
 - **`crates/clench-extract`**: fetched bytes plus Content-Type to a
   `Document` for HTML (a Readability port), Markdown, plain text and PDF,
   with charset detection. No I/O. Features `markdown` and `pdf`.
+- **`crates/clench-ffi`**: UniFFI bindings for native hosts with the same
+  surface as the wasm crate (`extract()`, a host-clocked `Session`,
+  `version()`); `scripts/build-apple.sh` turns them into
+  `ClenchCore.xcframework` and Swift bindings for `apps/apple`.
 - **`crates/clench-wasm`**: `wasm-bindgen` bindings, `extract()` and a
   `Session` that mirrors the player's controls and returns plain `Frame` and
   `Context` objects; the generated `.d.ts` is the API for any JavaScript host.
