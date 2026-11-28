@@ -1,4 +1,5 @@
 import ClenchKit
+import ClenchUI
 import SwiftUI
 
 #if os(iOS)
@@ -8,10 +9,13 @@ import UIKit
 final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
+        ClenchFonts.register()
+        view.backgroundColor = .clear
         let model = ShareModel(context: extensionContext) { [weak self] url in
             await self?.open(url) ?? false
         }
         let host = UIHostingController(rootView: ShareView(model: model))
+        host.view.backgroundColor = .clear
         addChild(host)
         host.view.frame = view.bounds
         host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -34,12 +38,14 @@ import AppKit
 /// The share extension's entry point on macOS.
 final class ShareViewController: NSViewController {
     override func loadView() {
+        ClenchFonts.register()
         let model = ShareModel(context: extensionContext) { url in
             NSWorkspace.shared.open(url)
         }
         let host = NSHostingView(rootView: ShareView(model: model))
-        host.frame = NSRect(x: 0, y: 0, width: 360, height: 220)
+        host.frame = NSRect(x: 0, y: 0, width: 540, height: 420)
         view = host
+        preferredContentSize = host.fittingSize
     }
 }
 #endif
