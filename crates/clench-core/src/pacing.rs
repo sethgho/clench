@@ -109,8 +109,19 @@ impl Pacing {
 
     /// Duration of `token` at the current WPM, without ease-in, ms.
     pub fn token_ms(&self, token: &Token) -> u32 {
-        if token.kind == TokenKind::Marker {
+        let Some(permille) = self.token_permille(token) else {
             return self.marker_ms;
+        };
+        let ms = 60 * permille / u64::from(self.clamp_wpm(self.wpm));
+        u32::try_from(ms).unwrap_or(u32::MAX)
+    }
+
+    /// The WPM-independent part of a word's duration: its multiple of the
+    /// base duration, in permille (see the formula above). `None` for a
+    /// marker, whose duration is the fixed `marker_ms`.
+    pub fn token_permille(&self, token: &Token) -> Option<u64> {
+        if token.kind == TokenKind::Marker {
+            return None;
         }
         let heading = token.block_kind == BlockKind::Heading;
         let mut permille: u64 = 1000;
@@ -133,8 +144,7 @@ impl Pacing {
             Pause::Paragraph if heading => self.heading_pause,
             Pause::Paragraph => self.paragraph_pause,
         });
-        let ms = 60 * permille / u64::from(self.clamp_wpm(self.wpm));
-        u32::try_from(ms).unwrap_or(u32::MAX)
+        Some(permille)
     }
 
     /// `ms` stretched for the `step`-th token (0-based) since playback

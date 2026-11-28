@@ -548,3 +548,42 @@ fn omitted_totals_marked_and_skipped_blocks_per_kind() {
     assert!(Script::with_options(&doc, &everything).omitted().is_empty());
     assert!(Script::new(&Document::default()).omitted().is_empty());
 }
+
+#[test]
+fn sentence_view_splits_the_sentence_around_the_token() {
+    let doc = Document::from_blocks(vec![
+        Block::paragraph("To go into solitude, a man must retire. I am not solitary. Look up."),
+        Block::new(BlockKind::Code, "fn main() {}"),
+        Block::paragraph("Supercalifragilisticexpialidocious ends here."),
+    ]);
+    let script = Script::new(&doc);
+
+    let v = script.sentence_view(2).unwrap();
+    assert_eq!(
+        (v.before, v.token, v.after),
+        ("To go ", "into", " solitude, a man must retire.")
+    );
+    assert_eq!((v.sentence, v.index_in_block), (0, 0));
+    assert_eq!(v.words, [8, 4, 2]);
+
+    let v = script.sentence_view(10).unwrap();
+    assert_eq!((v.before, v.token, v.after), ("I am ", "not", " solitary."));
+    assert_eq!((v.sentence, v.index_in_block), (1, 1));
+
+    let marker = script.tokens().iter().position(|t| t.is_marker()).unwrap();
+    let v = script.sentence_view(marker).unwrap();
+    assert_eq!((v.before, v.token, v.after), ("", "[code]", ""));
+    assert_eq!((v.index_in_block, v.words.as_slice()), (0, &[1][..]));
+
+    let v = script.sentence_view(marker + 2).unwrap();
+    assert_eq!(v.before, &"Supercalifragilisticexpialidocious"[..16]);
+    assert_eq!(v.words, [3]);
+    assert_eq!(
+        v.before.to_string() + v.token + v.after,
+        "Supercalifragilisticexpialidocious ends here."
+    );
+
+    assert!(script.sentence_view(script.len()).is_none());
+    assert_eq!(script.sentence_end(0), Some(8));
+    assert_eq!(script.sentence_end(script.sentence_count()), None);
+}

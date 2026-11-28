@@ -275,6 +275,27 @@ pub struct Parts<'a> {
     pub after: &'a str,
 }
 
+/// The sentence around a token, for a sentence strip: the sentence's text
+/// split around the token, and where the sentence sits among the sentences
+/// of its block. Sentences never span blocks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct SentenceView<'a> {
+    /// Sentence text before the token.
+    pub before: &'a str,
+    /// The token's text (for a marker, its label).
+    pub token: &'a str,
+    /// Sentence text after the token.
+    pub after: &'a str,
+    /// Ordinal of the sentence across the whole script.
+    pub sentence: usize,
+    /// Ordinal of the sentence within its block.
+    pub index_in_block: usize,
+    /// Author words of each sentence of the block, in order (markers count
+    /// as one), so `words.len()` is the number of sentences in the block.
+    pub words: Vec<usize>,
+}
+
 /// What a script leaves out for one [`BlockKind`]: blocks replaced by a
 /// marker token and blocks dropped silently, with the number of words in each
 /// group. Hosts use it to tell the reader honestly what they will not see.
@@ -482,6 +503,59 @@ impl Script {
     /// Index of the first token of `sentence`, or `None` if out of range.
     pub fn sentence_start(&self, sentence: usize) -> Option<usize> {
         self.sentence_starts.get(sentence).copied()
+    }
+
+    /// One past the last token of `sentence`, or `None` if out of range.
+    pub fn sentence_end(&self, sentence: usize) -> Option<usize> {
+        if sentence >= self.sentence_starts.len() {
+            return None;
+        }
+        Some(
+            self.sentence_starts
+                .get(sentence + 1)
+                .copied()
+                .unwrap_or(self.tokens.len()),
+        )
+    }
+
+    /// The sentence around token `index`. `None` if out of range.
+    pub fn sentence_view(&self, index: usize) -> Option<SentenceView<'_>> {
+        let token = self.tokens.get(index)?;
+        let block = &self.blocks[token.paragraph];
+        let first = self.tokens[block.token_start].sentence;
+        let last = self.tokens[block.token_end - 1].sentence;
+        let words = (first..=last)
+            .map(|s| {
+                let start = self.sentence_starts[s];
+                let end = self.sentence_end(s).unwrap_or(start);
+                let n = self.tokens[start..end]
+                    .iter()
+                    .filter(|t| t.kind == TokenKind::Word && !t.joined)
+                    .count();
+                n.max(usize::from(self.tokens[start].is_marker()))
+            })
+            .collect();
+        let (before, text, after) = if token.is_marker() {
+            ("", token.block_kind.marker_label(), "")
+        } else {
+            let start = self.sentence_starts[token.sentence];
+            let end = self.sentence_end(token.sentence).unwrap_or(start + 1);
+            let from = self.tokens[start].start;
+            let to = self.tokens[end - 1].end;
+            (
+                &block.text[from..token.start],
+                &block.text[token.start..token.end],
+                &block.text[token.end..to],
+            )
+        };
+        Some(SentenceView {
+            before,
+            token: text,
+            after,
+            sentence: token.sentence,
+            index_in_block: token.sentence - first,
+            words,
+        })
     }
 
     /// The text shown for token `index`: a slice of the author's block text

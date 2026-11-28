@@ -19,6 +19,8 @@
 //!    [`Script::with_options`].
 //! 3. Hand the script to a [`Player`] with a [`Pacing`], and drive it from
 //!    the host's clock.
+//! 4. For a document map, section list or time estimates, build an
+//!    [`Outline`] of the script.
 //!
 //! ```
 //! use clench_core::{Document, Pacing, PlayState, Player, Script};
@@ -95,6 +97,7 @@
 extern crate alloc;
 
 mod document;
+pub mod outline;
 mod pacing;
 mod player;
 mod script;
@@ -102,9 +105,10 @@ pub mod session;
 mod text;
 
 pub use document::{Block, BlockKind, Document, Source};
+pub use outline::{Outline, OutlineBlock, Section, Tick, Timing};
 pub use pacing::Pacing;
 pub use player::{Frame, PlayState, Player};
 pub use script::{
     BlockAction, Context, Omitted, Parts, Pause, ReadPolicy, Script, ScriptBlock, ScriptOptions,
-    Token, TokenKind,
+    SentenceView, Token, TokenKind,
 };

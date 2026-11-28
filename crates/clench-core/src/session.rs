@@ -4,7 +4,11 @@
 //! The WebAssembly and native (UniFFI) bindings both build their sessions
 //! from these, so a settings object means the same thing in every host.
 
-use crate::{BlockKind, Context, Document, Pacing, Player, Script, ScriptOptions, TokenKind};
+use crate::outline::tick_of;
+use crate::{
+    BlockKind, Context, Document, Outline, Pacing, Player, Script, ScriptOptions, Tick, Timing,
+    TokenKind,
+};
 
 /// Reading settings. Every field is optional; missing fields keep the
 /// engine's defaults. With the `serde` feature, unknown fields are rejected
@@ -33,6 +37,56 @@ pub fn build_player(doc: &Document, settings: &Settings) -> Player {
     let mut player = Player::new(Script::with_options(doc, &options), pacing);
     player.set_rewind_on_resume(settings.rewind_on_resume);
     player
+}
+
+/// The outline of the script `player` plays, which was built from `doc`.
+pub fn build_outline(doc: &Document, player: &Player) -> Outline {
+    Outline::new(doc, player.script(), player.pacing())
+}
+
+/// Where a player is, in the terms of its outline and a terrain made from
+/// it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct Position {
+    /// Index of the current token.
+    pub token: usize,
+    /// Index of the current block in [`Outline::blocks`].
+    pub block: Option<usize>,
+    /// Index of the current section in [`Outline::sections`].
+    pub section: Option<usize>,
+    /// Index of the current tick in the terrain passed in.
+    pub tick: Option<usize>,
+    /// Reading time from the current token to the end. Unlike
+    /// [`Player::remaining_ms`] it counts the current token in full.
+    pub remaining: Timing,
+    /// Reading time from the current token to the end of its section.
+    pub section_remaining: Timing,
+}
+
+/// The position of `player` in `outline` (built from the same script) and
+/// in `ticks` (a terrain of that outline). A finished player is past the
+/// end: no block, section or tick, and no time remaining.
+pub fn position(player: &Player, outline: &Outline, ticks: &[Tick]) -> Position {
+    let token = player.index();
+    if player.state() == crate::PlayState::Finished {
+        return Position {
+            token,
+            block: None,
+            section: None,
+            tick: None,
+            remaining: Timing::ZERO,
+            section_remaining: Timing::ZERO,
+        };
+    }
+    Position {
+        token,
+        block: outline.block_of(token),
+        section: outline.section_of(token),
+        tick: tick_of(ticks, token),
+        remaining: outline.remaining_from(token),
+        section_remaining: outline.section_remaining_from(token),
+    }
 }
 
 /// Number of author words in `script`: word tokens that do not continue a
@@ -149,6 +203,27 @@ mod tests {
                 "skipped_words": 0
             }])
         );
+    }
+
+    #[test]
+    fn position_follows_the_player() {
+        let d = doc();
+        let mut player = build_player(&d, &Settings::default());
+        let outline = build_outline(&d, &player);
+        let ticks = outline.terrain(0);
+        let p = position(&player, &outline, &ticks);
+        assert_eq!((p.block, p.section, p.tick), (Some(0), Some(0), Some(0)));
+        assert_eq!(p.remaining, outline.timing);
+        player.seek(7);
+        let p = position(&player, &outline, &ticks);
+        assert_eq!((p.block, p.tick), (Some(1), Some(1)));
+        assert_eq!(p.remaining.fixed_ms, 1500);
+        player.seek(usize::MAX);
+        player.play();
+        player.advance(u32::MAX);
+        let p = position(&player, &outline, &ticks);
+        assert_eq!(player.state(), PlayState::Finished);
+        assert_eq!((p.block, p.tick, p.remaining), (None, None, Timing::ZERO));
     }
 
     #[test]
