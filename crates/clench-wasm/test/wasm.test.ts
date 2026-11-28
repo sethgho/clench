@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { extract, initSync, Session, version, type Document } from "../pkg/clench.js"
+import { extract, initSync, readingMs, Session, version, type Document } from "../pkg/clench.js"
 
 const root = join(import.meta.dir, "../../..")
 const fixtures = join(root, "fixtures")
@@ -238,5 +238,46 @@ describe("Session", () => {
     expect(s.state).toBe("finished")
     expect(s.context()).toBeUndefined()
     expect(s.nextChangeIn()).toBeUndefined()
+  })
+})
+
+describe("outline", () => {
+  test("sections, terrain and position match the native bindings' rules", () => {
+    const doc = extractFixture("06-wikipedia.html")
+    const s = new Session(doc, { wpm: 320 })
+    const o = s.outline()
+    expect(o.words).toBe(s.wordCount)
+    expect(o.tokens).toBe(s.tokenCount)
+    expect(o.sections.length).toBeGreaterThan(2)
+    expect(o.sections.reduce((n, sec) => n + sec.words, 0)).toBe(o.words)
+    const est = readingMs(o.timing, 320)
+    expect(est).toBeGreaterThanOrEqual(s.totalMs)
+    expect(est - s.totalMs).toBeLessThanOrEqual(o.tokens)
+
+    const ticks = s.terrain(60)
+    expect(ticks.length).toBeLessThanOrEqual(Math.max(60, 2 * o.sections.length))
+    expect(ticks[0]!.token_start).toBe(0)
+    expect(ticks[ticks.length - 1]!.token_end).toBe(o.tokens)
+
+    const mid = ticks[Math.floor(ticks.length / 2)]!
+    s.seek(mid.token_start)
+    const p = s.position(60)
+    expect(p.tick).toBe(Math.floor(ticks.length / 2))
+    expect(p.section).toBe(mid.section)
+    expect(p.remaining.beats).toBeLessThan(o.timing.beats)
+  })
+
+  test("the sentence strip splits the sentence around the word", () => {
+    const text = "To go into solitude, a man must retire. I am not solitary. Look up."
+    const s = new Session(extract(new TextEncoder().encode(text), "text/plain", ""))
+    s.seek(2)
+    const v = s.sentence()!
+    expect([v.before, v.token, v.after]).toEqual(["To go ", "into", " solitude, a man must retire."])
+    expect(v.words).toEqual([8, 4, 2])
+    s.nextSentence()
+    expect(s.sentence()!.index_in_block).toBe(1)
+    const empty = new Session({ blocks: [] } as unknown as Document)
+    expect(empty.sentence()).toBeUndefined()
+    expect(empty.position(10).tick).toBeNull()
   })
 })

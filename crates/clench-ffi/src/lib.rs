@@ -10,6 +10,10 @@
 //!   player and mirrors its controls. It never reads a clock: the host
 //!   reports elapsed time with [`Session::advance`] and asks
 //!   [`Session::next_change_in`] when to wake up.
+//! * [`Session::outline`], [`Session::terrain`], [`Session::position`] and
+//!   [`Session::sentence`] describe the document map, sections and the
+//!   sentence being read; [`reading_ms`] turns a stored [`Timing`] into a
+//!   duration at any speed.
 //! * [`version`] is the engine version.
 //!
 //! Settings are the same JSON object the WebAssembly `Session` accepts (see
@@ -31,9 +35,9 @@
 use std::sync::{Mutex, MutexGuard};
 use std::thread;
 
-use clench_core::Player;
-use clench_core::session::{ContextView, Settings, build_player, word_count};
+use clench_core::session::{ContextView, Settings, build_outline, build_player, word_count};
 pub use clench_core::{BlockKind, PlayState, Source};
+use clench_core::{Pacing, Player};
 
 uniffi::setup_scaffolding!();
 
@@ -313,6 +317,149 @@ pub struct Omitted {
     pub skipped_words: u64,
 }
 
+/// Reading time that does not depend on the speed; turn it into
+/// milliseconds with [`reading_ms`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, uniffi::Record)]
+pub struct Timing {
+    /// Summed word durations in thousandths of the base duration
+    /// `60000 / wpm` ms.
+    pub beats: u64,
+    /// Time that does not scale with the speed (markers), ms.
+    pub fixed_ms: u64,
+}
+
+impl From<clench_core::Timing> for Timing {
+    fn from(t: clench_core::Timing) -> Timing {
+        Timing {
+            beats: t.beats,
+            fixed_ms: t.fixed_ms,
+        }
+    }
+}
+
+impl From<Timing> for clench_core::Timing {
+    fn from(t: Timing) -> clench_core::Timing {
+        clench_core::Timing {
+            beats: t.beats,
+            fixed_ms: t.fixed_ms,
+        }
+    }
+}
+
+/// A run of blocks starting at a section heading, or the text before the
+/// first one.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct OutlineSection {
+    /// The heading text; `None` for text before the first section heading.
+    pub title: Option<String>,
+    /// The heading level.
+    pub level: Option<u8>,
+    /// First token of the section.
+    pub token_start: u64,
+    /// One past the section's last token.
+    pub token_end: u64,
+    /// Number of blocks in the section, heading included.
+    pub blocks: u64,
+    /// Author words in the section.
+    pub words: u64,
+    /// Reading time of the section.
+    pub timing: Timing,
+}
+
+/// The sections and totals of a session's script.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct Outline {
+    /// Sections in order; every token belongs to exactly one.
+    pub sections: Vec<OutlineSection>,
+    /// Number of blocks.
+    pub blocks: u64,
+    /// Author words read.
+    pub words: u64,
+    /// Number of tokens.
+    pub tokens: u64,
+    /// Number of sentences.
+    pub sentences: u64,
+    /// Reading time of the whole script.
+    pub timing: Timing,
+}
+
+/// One mark on a document map.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
+pub struct TerrainTick {
+    /// The tick is a section heading.
+    pub heading: bool,
+    /// Kind of the tick's first block.
+    pub kind: BlockKind,
+    /// Index of the tick's section in [`Outline::sections`].
+    pub section: u64,
+    /// First token the tick covers; seek here to jump to it.
+    pub token_start: u64,
+    /// One past the last token the tick covers.
+    pub token_end: u64,
+    /// Author words the tick covers.
+    pub words: u64,
+    /// Size relative to the largest non-heading tick, 0 to 1000; headings
+    /// are 1000.
+    pub weight: u16,
+}
+
+impl From<clench_core::Tick> for TerrainTick {
+    fn from(t: clench_core::Tick) -> TerrainTick {
+        TerrainTick {
+            heading: t.heading,
+            kind: t.kind,
+            section: t.section as u64,
+            token_start: t.token_start as u64,
+            token_end: t.token_end as u64,
+            words: t.words as u64,
+            weight: t.weight,
+        }
+    }
+}
+
+/// Where the session is, in outline terms.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
+pub struct ReadingPosition {
+    /// Index of the current token.
+    pub token: u64,
+    /// Index of the current section in [`Outline::sections`]; `None` when
+    /// finished.
+    pub section: Option<u64>,
+    /// Index of the current tick in a terrain of the size asked for; `None`
+    /// when finished.
+    pub tick: Option<u64>,
+    /// Reading time from the current word to the end, current word
+    /// included.
+    pub remaining: Timing,
+    /// Reading time from the current word to the end of its section.
+    pub section_remaining: Timing,
+}
+
+/// The sentence around the current word.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct SentenceView {
+    /// Sentence text before the current word.
+    pub before: String,
+    /// The current word (for a marker, its label).
+    pub token: String,
+    /// Sentence text after the current word.
+    pub after: String,
+    /// Ordinal of the sentence in the whole script.
+    pub sentence: u64,
+    /// Ordinal of the sentence in its block.
+    pub index_in_block: u64,
+    /// Words of each sentence in the block; its length is the number of
+    /// sentences in the block.
+    pub words: Vec<u64>,
+}
+
+/// Milliseconds that `timing` takes at `wpm`, clamped to the engine's
+/// default speed range (100 to 1500).
+#[uniffi::export]
+pub fn reading_ms(timing: Timing, wpm: u32) -> u64 {
+    clench_core::Timing::from(timing).ms_with(&Pacing::default(), wpm)
+}
+
 /// The version of the clench engine.
 #[uniffi::export]
 pub fn version() -> String {
@@ -370,6 +517,7 @@ fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
 #[derive(uniffi::Object)]
 pub struct Session {
     player: Mutex<Player>,
+    outline: clench_core::Outline,
     words: u64,
 }
 
@@ -400,9 +548,11 @@ impl Session {
         };
         let doc: clench_core::Document = document.into();
         let player = build_player(&doc, &settings);
+        let outline = build_outline(&doc, &player);
         let words = word_count(player.script()) as u64;
         Ok(Session {
             player: Mutex::new(player),
+            outline,
             words,
         })
     }
@@ -576,5 +726,74 @@ impl Session {
     /// Estimated time left at the current WPM, ms, excluding ease-in.
     pub fn remaining_ms(&self) -> u64 {
         self.player().remaining_ms()
+    }
+
+    /// The script's sections and totals. The outline does not change during
+    /// a session.
+    pub fn outline(&self) -> Outline {
+        let o = &self.outline;
+        Outline {
+            sections: o
+                .sections
+                .iter()
+                .map(|s| OutlineSection {
+                    title: s.title.clone(),
+                    level: s.level,
+                    token_start: s.token_start as u64,
+                    token_end: s.token_end as u64,
+                    blocks: (s.block_end - s.block_start) as u64,
+                    words: s.words as u64,
+                    timing: s.timing.into(),
+                })
+                .collect(),
+            blocks: o.blocks.len() as u64,
+            words: o.words as u64,
+            tokens: o.tokens as u64,
+            sentences: o.sentences as u64,
+            timing: o.timing.into(),
+        }
+    }
+
+    /// A document map of at most `max_ticks` ticks (or two per section if
+    /// that is more; 0 means one per block): section headings and runs of
+    /// the blocks between them, sized by word count.
+    pub fn terrain(&self, max_ticks: u32) -> Vec<TerrainTick> {
+        self.outline
+            .terrain(max_ticks as usize)
+            .into_iter()
+            .map(TerrainTick::from)
+            .collect()
+    }
+
+    /// Where the session is, with the tick index for a terrain of
+    /// `max_ticks` (the same value passed to [`Session::terrain`]).
+    pub fn position(&self, max_ticks: u32) -> ReadingPosition {
+        let ticks = self.outline.terrain(max_ticks as usize);
+        let player = self.player();
+        let p = clench_core::session::position(&player, &self.outline, &ticks);
+        ReadingPosition {
+            token: p.token as u64,
+            section: p.section.map(|s| s as u64),
+            tick: p.tick.map(|t| t as u64),
+            remaining: p.remaining.into(),
+            section_remaining: p.section_remaining.into(),
+        }
+    }
+
+    /// The sentence around the current word, for a sentence strip; `None`
+    /// if the document has nothing to read.
+    pub fn sentence(&self) -> Option<SentenceView> {
+        let player = self.player();
+        player
+            .script()
+            .sentence_view(player.index())
+            .map(|v| SentenceView {
+                before: v.before.to_string(),
+                token: v.token.to_string(),
+                after: v.after.to_string(),
+                sentence: v.sentence as u64,
+                index_in_block: v.index_in_block as u64,
+                words: v.words.iter().map(|&w| w as u64).collect(),
+            })
     }
 }

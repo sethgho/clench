@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use clench_core::session::{Settings, build_player};
-use clench_ffi::{ClenchError, Document, PlayState, Session, extract, version};
+use clench_ffi::{ClenchError, Document, PlayState, Session, extract, reading_ms, version};
 
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures")
@@ -161,4 +161,76 @@ fn empty_document_is_finished() {
     assert_eq!(session.state(), PlayState::Finished);
     assert_eq!(session.context(), None);
     assert_eq!(session.word_count(), 0);
+}
+
+#[test]
+fn outline_terrain_and_position_describe_the_document() {
+    let doc = extract_fixture("06-wikipedia.html");
+    let session = Session::new(doc.clone(), Some(r#"{"wpm": 320}"#.into())).unwrap();
+    let outline = session.outline();
+    assert_eq!(outline.words, session.word_count());
+    assert_eq!(outline.tokens, session.token_count());
+    assert!(outline.sections.len() > 2, "a wikipedia page has sections");
+    assert!(outline.sections.iter().skip(1).all(|s| s.title.is_some()));
+    assert_eq!(
+        outline.sections.iter().map(|s| s.words).sum::<u64>(),
+        outline.words
+    );
+    let est = reading_ms(outline.timing, 320);
+    let exact = session.total_ms();
+    assert!(
+        est >= exact && est - exact <= outline.tokens,
+        "{est} vs {exact}"
+    );
+    assert_eq!(
+        reading_ms(outline.timing, 5000),
+        reading_ms(outline.timing, 1500)
+    );
+
+    let ticks = session.terrain(60);
+    assert!(ticks.len() as u64 <= 60.max(2 * outline.sections.len() as u64));
+    assert_eq!(ticks.first().map(|t| t.token_start), Some(0));
+    assert_eq!(ticks.last().map(|t| t.token_end), Some(outline.tokens));
+    assert!(ticks.iter().all(|t| t.weight <= 1000));
+
+    let start = session.position(60);
+    assert_eq!(
+        (start.token, start.section, start.tick),
+        (0, Some(0), Some(0))
+    );
+    assert_eq!(start.remaining, outline.timing);
+
+    let target = &ticks[ticks.len() / 2];
+    session.seek(target.token_start);
+    let p = session.position(60);
+    assert_eq!(p.tick, Some((ticks.len() / 2) as u64));
+    assert_eq!(p.section, Some(target.section));
+    assert!(p.remaining.beats < outline.timing.beats);
+    let section = &outline.sections[target.section as usize];
+    assert!(p.section_remaining.beats <= section.timing.beats);
+}
+
+#[test]
+fn sentence_strip_and_sentence_steps() {
+    let doc = Document::from(clench_core::Document::from_plain_text(
+        "To go into solitude, a man must retire. I am not solitary. Look up.",
+    ));
+    let session = Session::new(doc, None).unwrap();
+    session.seek(2);
+    let s = session.sentence().unwrap();
+    assert_eq!((s.before.as_str(), s.token.as_str()), ("To go ", "into"));
+    assert_eq!(s.after, " solitude, a man must retire.");
+    assert_eq!((s.index_in_block, s.words.clone()), (0, vec![8, 4, 2]));
+    session.next_sentence();
+    let s = session.sentence().unwrap();
+    assert_eq!(
+        (s.before.as_str(), s.token.as_str(), s.index_in_block),
+        ("", "I", 1)
+    );
+    session.prev_sentence();
+    assert_eq!(session.sentence().unwrap().index_in_block, 0);
+    let empty = Session::new(Document::from(clench_core::Document::default()), None).unwrap();
+    assert!(empty.sentence().is_none());
+    assert_eq!(empty.position(10).tick, None);
+    assert!(empty.terrain(10).is_empty());
 }

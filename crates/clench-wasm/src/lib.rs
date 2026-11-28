@@ -41,12 +41,14 @@
 use std::sync::Once;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use clench_core::{Document, Player};
+use clench_core::{Document, Outline, Pacing, Player, Timing};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::*;
 
-pub use clench_core::session::{ContextView, Settings, build_player, word_count};
+pub use clench_core::session::{
+    ContextView, Settings, build_outline, build_player, position, word_count,
+};
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_TYPES: &'static str = r#"
@@ -177,6 +179,81 @@ export interface Omitted {
   skipped_words: number;
 }
 
+/** Reading time that does not depend on the speed; see `readingMs`. */
+export interface Timing {
+  /** Summed word durations in thousandths of the base duration 60000 / wpm ms. */
+  beats: number;
+  /** Time that does not scale with the speed (markers), ms. */
+  fixed_ms: number;
+}
+
+/** One block of the script in an outline. */
+export interface OutlineBlock {
+  block: number;
+  kind: BlockKind;
+  level: number | null;
+  section: number;
+  token_start: number;
+  token_end: number;
+  words: number;
+  timing: Timing;
+}
+
+/** A run of blocks starting at a section heading (title null: text before the first). */
+export interface Section {
+  title: string | null;
+  level: number | null;
+  block_start: number;
+  block_end: number;
+  token_start: number;
+  token_end: number;
+  words: number;
+  timing: Timing;
+}
+
+/** Sections, blocks and totals of a session's script. */
+export interface Outline {
+  blocks: OutlineBlock[];
+  sections: Section[];
+  words: number;
+  tokens: number;
+  sentences: number;
+  timing: Timing;
+}
+
+/** One mark on a document map. */
+export interface Tick {
+  heading: boolean;
+  kind: BlockKind;
+  section: number;
+  token_start: number;
+  token_end: number;
+  words: number;
+  /** Size relative to the largest non-heading tick, 0 to 1000. */
+  weight: number;
+}
+
+/** Where the session is, in outline terms (indices null when finished). */
+export interface Position {
+  token: number;
+  block: number | null;
+  section: number | null;
+  tick: number | null;
+  remaining: Timing;
+  section_remaining: Timing;
+}
+
+/** The sentence around the current word. */
+export interface SentenceView {
+  before: string;
+  token: string;
+  after: string;
+  sentence: number;
+  index_in_block: number;
+  /** Words of each sentence of the block. */
+  words: number[];
+}
+
 /** The current token's block, split around the token. */
 export interface Context {
   block: number;
@@ -235,6 +312,17 @@ fn from_js<T: DeserializeOwned>(value: &JsValue, what: &str) -> Result<T, JsErro
     serde_json::from_str(&json).map_err(|e| JsError::new(&format!("invalid {what}: {e}")))
 }
 
+/// Milliseconds that `timing` (from an outline or position) takes at
+/// `wpm`, clamped to the engine's default speed range.
+#[wasm_bindgen(js_name = readingMs)]
+pub fn reading_ms(
+    #[wasm_bindgen(unchecked_param_type = "Timing")] timing: JsValue,
+    wpm: u32,
+) -> Result<f64, JsError> {
+    let timing: Timing = from_js(&timing, "timing")?;
+    Ok(timing.ms_with(&Pacing::default(), wpm) as f64)
+}
+
 /// The version of the clench engine.
 #[wasm_bindgen]
 pub fn version() -> String {
@@ -263,6 +351,7 @@ pub fn extract(
 #[wasm_bindgen]
 pub struct Session {
     player: Player,
+    outline: Outline,
     words: usize,
 }
 
@@ -279,8 +368,13 @@ impl Session {
             None => Settings::default(),
         };
         let player = build_player(&doc, &settings);
+        let outline = build_outline(&doc, &player);
         let words = word_count(player.script());
-        Ok(Session { player, words })
+        Ok(Session {
+            player,
+            outline,
+            words,
+        })
     }
 
     /// Starts or resumes playback (with ease-in). From finished, restarts.
@@ -440,5 +534,42 @@ impl Session {
     #[wasm_bindgen(getter, js_name = remainingMs)]
     pub fn remaining_ms(&self) -> f64 {
         self.player.remaining_ms() as f64
+    }
+
+    /// The script's sections, blocks and totals.
+    #[wasm_bindgen(unchecked_return_type = "Outline")]
+    pub fn outline(&self) -> Result<JsValue, JsError> {
+        to_js(&self.outline)
+    }
+
+    /// A document map of at most `maxTicks` ticks (or two per section if
+    /// that is more; 0 means one per block).
+    #[wasm_bindgen(unchecked_return_type = "Tick[]")]
+    pub fn terrain(
+        &self,
+        #[wasm_bindgen(js_name = maxTicks)] max_ticks: u32,
+    ) -> Result<JsValue, JsError> {
+        to_js(&self.outline.terrain(max_ticks as usize))
+    }
+
+    /// Where the session is, with the tick index for a terrain of
+    /// `maxTicks`.
+    #[wasm_bindgen(unchecked_return_type = "Position")]
+    pub fn position(
+        &self,
+        #[wasm_bindgen(js_name = maxTicks)] max_ticks: u32,
+    ) -> Result<JsValue, JsError> {
+        let ticks = self.outline.terrain(max_ticks as usize);
+        to_js(&position(&self.player, &self.outline, &ticks))
+    }
+
+    /// The sentence around the current word; `undefined` if the document
+    /// has nothing to read.
+    #[wasm_bindgen(unchecked_return_type = "SentenceView | undefined")]
+    pub fn sentence(&self) -> Result<JsValue, JsError> {
+        match self.player.script().sentence_view(self.player.index()) {
+            Some(view) => to_js(&view),
+            None => Ok(JsValue::UNDEFINED),
+        }
     }
 }
