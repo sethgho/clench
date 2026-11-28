@@ -1,0 +1,32 @@
+[package]
+name = "clench-ffi"
+version = "0.1.0"
+description = "Native bindings for clench through UniFFI: extraction and a host-clocked reading session."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+name = "clench_ffi"
+crate-type = ["lib", "staticlib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["bindgen"]
+
+[features]
+default = ["markdown", "pdf"]
+markdown = ["clench-extract/markdown"]
+pdf = ["clench-extract/pdf"]
+# Builds the `uniffi-bindgen` command that generates the Swift bindings.
+bindgen = ["uniffi/cli"]
+
+[dependencies]
+clench-core = { path = "../clench-core", features = ["serde"] }
+clench-extract = { path = "../clench-extract", default-features = false }
+serde_json = "1"
+thiserror = "2"
+# The generated Swift must come from the same UniFFI version as the library.
+uniffi = "=0.33.0"

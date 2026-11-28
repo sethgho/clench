@@ -1,0 +1,5 @@
+[bindings.swift]
+module_name = "ClenchFFI"
+ffi_module_name = "ClenchCoreFFI"
+ffi_module_filename = "ClenchCoreFFI"
+generate_module_map = true
