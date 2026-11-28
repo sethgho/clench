@@ -8,6 +8,8 @@ public enum SharedPayload: Sendable, Equatable {
     case page(html: String, url: URL?, title: String?)
     /// Plain text, read as written.
     case text(String, title: String?)
+    /// Pasted text whose format (HTML, Markdown or plain) the engine detects.
+    case pasted(String)
 
     /// A queue item for this payload plus the bytes to store with it.
     public func queueEntry(added: Date = .now) -> (item: QueueItem, content: Data?, contentType: String?) {
@@ -21,6 +23,9 @@ public enum SharedPayload: Sendable, Equatable {
         case let .text(text, title):
             let item = QueueItem(url: nil, title: Self.title(title, fallback: Self.firstLine(of: text)), added: added)
             return (item, Data(text.utf8), "text/plain; charset=utf-8")
+        case let .pasted(text):
+            let item = QueueItem(url: nil, title: Self.firstLine(of: text), added: added)
+            return (item, Data(text.utf8), nil)
         }
     }
 

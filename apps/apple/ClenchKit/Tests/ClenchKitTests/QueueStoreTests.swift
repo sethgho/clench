@@ -69,3 +69,29 @@ import Testing
         #expect(DeepLink(url: URL(string: "https://example.com")!) == nil)
     }
 }
+
+@Suite struct ShareInputTests {
+    @Test func preprocessingPrefersSelectionThenPage() {
+        let page: [String: Any] = ["url": "https://example.com/a", "title": "A", "html": "<p>x</p>", "selection": " "]
+        #expect(ShareInput.payload(fromPreprocessing: page) == .page(html: "<p>x</p>", url: URL(string: "https://example.com/a"), title: "A"))
+        var selected = page
+        selected["selection"] = "Just this."
+        #expect(ShareInput.payload(fromPreprocessing: selected) == .text("Just this.", title: "A"))
+    }
+
+    @Test func textThatIsALinkBecomesALink() {
+        #expect(ShareInput.payload(fromText: " https://example.com/post \n", title: nil) == .url(URL(string: "https://example.com/post")!, title: nil))
+        #expect(ShareInput.payload(fromText: "see https://example.com", title: nil) == .text("see https://example.com", title: nil))
+        #expect(ShareInput.payload(fromText: "  ", title: nil) == nil)
+    }
+
+    @Test func pastedHTMLIsDetectedByTheEngine() throws {
+        let html = "<html><head><title>T</title></head><body><article><p>One two three.</p></article></body></html>"
+        let payload = try #require(ShareInput.payload(fromPaste: html))
+        #expect(payload == .pasted(html))
+        let entry = payload.queueEntry()
+        #expect(entry.contentType == nil)
+        let doc = try DocumentLoader.extract(try #require(entry.content), contentType: entry.contentType, url: nil)
+        #expect(doc.source == .readability)
+    }
+}
