@@ -95,8 +95,11 @@ DEVELOPMENT_TEAM = <your team ID>
 BUNDLE_ID_PREFIX = <a reverse-DNS prefix you own, e.g. org.yourname>
 ```
 
-With a team set, `Base.xcconfig` switches to automatic signing. Everything
-else derives from the prefix:
+With a team set, `Base.xcconfig` switches to automatic signing. Without
+one, the macOS targets are ad-hoc signed with `*-macOS-AdHoc.entitlements`,
+which leave the App Group out (on macOS a `group.` App Group needs a
+provisioning profile): the app works on its own, but the share extension
+cannot reach its queue. Everything else derives from the prefix:
 
 | | Value |
 |---|---|

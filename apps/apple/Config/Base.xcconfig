@@ -25,7 +25,17 @@ CLENCH_SIGN_IDENTITY_ = -
 CODE_SIGN_STYLE = $(CLENCH_SIGN_STYLE_$(DEVELOPMENT_TEAM):default=Automatic)
 CODE_SIGN_IDENTITY = $(CLENCH_SIGN_IDENTITY_$(DEVELOPMENT_TEAM):default=Apple Development)
 
-// The engine's simulator slice is arm64 only (scripts/build-apple.sh).
+// On macOS a group.* App Group needs a provisioning profile, which ad-hoc
+// signing cannot have, so without a team the macOS targets use
+// entitlements without the App Group (*-macOS-AdHoc.entitlements). The app
+// then keeps its queue in its own container and the share extension
+// cannot reach it.
+CLENCH_ENTITLEMENTS_VARIANT_ = -AdHoc
+CLENCH_ENTITLEMENTS_VARIANT = $(CLENCH_ENTITLEMENTS_VARIANT_$(DEVELOPMENT_TEAM))
+
+// The engine is built for arm64 only (scripts/build-apple.sh), so the
+// simulator and macOS builds leave x86_64 out.
 EXCLUDED_ARCHS[sdk=iphonesimulator*] = x86_64
+EXCLUDED_ARCHS[sdk=macosx*] = x86_64
 
 #include? "Local.xcconfig"
