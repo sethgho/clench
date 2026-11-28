@@ -1,0 +1,31 @@
+// Shared build settings for the Clench app and its share extension.
+//
+// Per-developer signing lives in Local.xcconfig (gitignored), included at
+// the end so it overrides the defaults below. Copy Local.xcconfig.example to
+// Local.xcconfig and fill in your own team and bundle ID prefix. Without it
+// the project builds unsigned or ad-hoc signed for the iOS Simulator and
+// macOS.
+
+// Reverse-DNS prefix for bundle IDs and the App Group.
+BUNDLE_ID_PREFIX = com.example
+
+// Empty: no team, ad-hoc signing ("Sign to Run Locally").
+DEVELOPMENT_TEAM =
+
+CLENCH_BUNDLE_ID = $(BUNDLE_ID_PREFIX).clench
+CLENCH_SHARE_BUNDLE_ID = $(CLENCH_BUNDLE_ID).share
+CLENCH_APP_GROUP = group.$(BUNDLE_ID_PREFIX).clench
+
+// Automatic signing once a team is set, ad-hoc signing without one. A
+// setting named after the team is never defined, so it expands to nothing
+// and the :default= value applies; with no team the name is the defined
+// CLENCH_SIGN_*_ setting.
+CLENCH_SIGN_STYLE_ = Manual
+CLENCH_SIGN_IDENTITY_ = -
+CODE_SIGN_STYLE = $(CLENCH_SIGN_STYLE_$(DEVELOPMENT_TEAM):default=Automatic)
+CODE_SIGN_IDENTITY = $(CLENCH_SIGN_IDENTITY_$(DEVELOPMENT_TEAM):default=Apple Development)
+
+// The engine's simulator slice is arm64 only (scripts/build-apple.sh).
+EXCLUDED_ARCHS[sdk=iphonesimulator*] = x86_64
+
+#include? "Local.xcconfig"
