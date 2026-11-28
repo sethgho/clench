@@ -27,14 +27,20 @@ public enum AppGroup {
     /// The directory holding the queue: the shared container when there is
     /// one, otherwise a private fallback.
     public static func storageDirectory() throws -> URL {
-        let base: URL
+        // On macOS the container URL comes back even for a group the
+        // process is not entitled to (an ad-hoc build), and the sandbox
+        // then refuses to write there, so the shared directory is used only
+        // once it could be created.
         if let shared = sharedContainer {
-            base = shared.appending(path: "Library/Application Support", directoryHint: .isDirectory)
-        } else {
-            base = try FileManager.default.url(
-                for: .applicationSupportDirectory, in: .userDomainMask,
-                appropriateFor: nil, create: true)
+            let dir = shared.appending(path: "Library/Application Support/clench", directoryHint: .isDirectory)
+            if (try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)) != nil,
+               FileManager.default.isWritableFile(atPath: dir.path(percentEncoded: false)) {
+                return dir
+            }
         }
+        let base = try FileManager.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask,
+            appropriateFor: nil, create: true)
         let dir = base.appending(path: "clench", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
