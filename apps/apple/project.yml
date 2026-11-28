@@ -38,7 +38,12 @@ targets:
     dependencies:
       - package: ClenchKit
         product: ClenchKit
+      - package: ClenchKit
+        product: ClenchUI
       - target: ClenchShare
+        embed: true
+        codeSign: true
+      - target: ClenchWidget
         embed: true
         codeSign: true
     settings:
@@ -62,6 +67,8 @@ targets:
     dependencies:
       - package: ClenchKit
         product: ClenchKit
+      - package: ClenchKit
+        product: ClenchUI
     settings:
       base:
         PRODUCT_NAME: ClenchShare
@@ -69,6 +76,31 @@ targets:
         INFOPLIST_FILE: ClenchShare/Info.plist
         CODE_SIGN_ENTITLEMENTS[sdk=iphone*]: ClenchShare/ClenchShare-iOS.entitlements
         CODE_SIGN_ENTITLEMENTS[sdk=macosx*]: ClenchShare/ClenchShare-macOS$(CLENCH_ENTITLEMENTS_VARIANT).entitlements
+        ENABLE_HARDENED_RUNTIME[sdk=macosx*]: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        APPLICATION_EXTENSION_API_ONLY: YES
+
+  ClenchWidget:
+    type: app-extension
+    platform: auto
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: ClenchWidget
+        excludes: ["*.entitlements"]
+    dependencies:
+      - package: ClenchKit
+        product: ClenchKit
+      - package: ClenchKit
+        product: ClenchUI
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    settings:
+      base:
+        PRODUCT_NAME: ClenchWidget
+        PRODUCT_BUNDLE_IDENTIFIER: $(CLENCH_WIDGET_BUNDLE_ID)
+        INFOPLIST_FILE: ClenchWidget/Info.plist
+        CODE_SIGN_ENTITLEMENTS[sdk=iphone*]: ClenchWidget/ClenchWidget-iOS.entitlements
+        CODE_SIGN_ENTITLEMENTS[sdk=macosx*]: ClenchWidget/ClenchWidget-macOS$(CLENCH_ENTITLEMENTS_VARIANT).entitlements
         ENABLE_HARDENED_RUNTIME[sdk=macosx*]: YES
         TARGETED_DEVICE_FAMILY: "1,2"
         APPLICATION_EXTENSION_API_ONLY: YES

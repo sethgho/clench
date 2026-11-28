@@ -1,4 +1,4 @@
-// Shared build settings for the Clench app and its share extension.
+// Shared build settings for the Clench app and its extensions.
 //
 // Per-developer signing lives in Local.xcconfig (gitignored), included at
 // the end so it overrides the defaults below. Copy Local.xcconfig.example to
@@ -14,6 +14,7 @@ DEVELOPMENT_TEAM =
 
 CLENCH_BUNDLE_ID = $(BUNDLE_ID_PREFIX).clench
 CLENCH_SHARE_BUNDLE_ID = $(CLENCH_BUNDLE_ID).share
+CLENCH_WIDGET_BUNDLE_ID = $(CLENCH_BUNDLE_ID).widget
 CLENCH_APP_GROUP = group.$(BUNDLE_ID_PREFIX).clench
 
 // Automatic signing once a team is set, ad-hoc signing without one. A
