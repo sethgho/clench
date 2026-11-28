@@ -10,6 +10,8 @@ public enum SharedPayload: Sendable, Equatable {
     case text(String, title: String?)
     /// Pasted text whose format (HTML, Markdown or plain) the engine detects.
     case pasted(String)
+    /// A file's bytes (a PDF, a text or Markdown file) with its type.
+    case file(Data, contentType: String?, name: String)
 
     /// A queue item for this payload plus the bytes to store with it.
     public func queueEntry(added: Date = .now) -> (item: QueueItem, content: Data?, contentType: String?) {
@@ -26,6 +28,10 @@ public enum SharedPayload: Sendable, Equatable {
         case let .pasted(text):
             let item = QueueItem(url: nil, title: Self.firstLine(of: text), added: added)
             return (item, Data(text.utf8), nil)
+        case let .file(data, contentType, name):
+            let title = (name as NSString).deletingPathExtension
+            let item = QueueItem(url: nil, title: Self.title(title, fallback: "Document"), added: added)
+            return (item, data, contentType)
         }
     }
 

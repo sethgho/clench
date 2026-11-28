@@ -54,7 +54,7 @@ public struct TerrainModel: Hashable, Sendable {
         return i < current ? .read : .unread
     }
 
-    func color(_ i: Int, _ c: Colors) -> Color {
+    public func color(_ i: Int, _ c: Colors) -> Color {
         switch state(i) {
         case .current: c.accent
         case .read: c.faint
