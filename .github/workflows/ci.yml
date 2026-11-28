@@ -83,3 +83,48 @@ jobs:
       - run: bun run ext:build
       - run: ./node_modules/.bin/playwright-core install --with-deps chromium
       - run: bun run ext:e2e
+
+  apple:
+    name: Apple (xcframework, iOS Simulator and macOS builds, Swift tests)
+    # Image list: https://github.com/actions/runner-images (Xcode 27 image,
+    # arm64). Its default Xcode is 27.1, pinned below.
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      XCODEGEN_VERSION: "2.48.0"
+      DERIVED_DATA: ${{ github.workspace }}/build/DerivedData
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          rust-targets: aarch64-apple-darwin,aarch64-apple-ios,aarch64-apple-ios-sim
+          wasm-tools: "false"
+          bun: "false"
+          cache-key: apple
+      - name: Install XcodeGen
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+      - run: xcodebuild -version
+      - run: cargo test -p clench-ffi
+      - run: sh scripts/build-apple.sh
+      # The Swift tests compare word counts with the native tool.
+      - run: cargo build -p clench-cli
+      - run: xcodegen generate --spec apps/apple/project.yml
+      - name: Build Clench for the iOS Simulator
+        run: >-
+          xcodebuild build -project apps/apple/Clench.xcodeproj -scheme Clench
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath "$DERIVED_DATA" CODE_SIGNING_ALLOWED=NO
+      - name: Build Clench for macOS
+        run: >-
+          xcodebuild build -project apps/apple/Clench.xcodeproj -scheme Clench
+          -destination 'generic/platform=macOS'
+          -derivedDataPath "$DERIVED_DATA" CODE_SIGNING_ALLOWED=NO
+      - name: Swift tests (macOS)
+        run: >-
+          xcodebuild test -project apps/apple/Clench.xcodeproj -scheme Clench
+          -destination 'platform=macOS'
+          -derivedDataPath "$DERIVED_DATA" CODE_SIGNING_ALLOWED=NO

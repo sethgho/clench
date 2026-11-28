@@ -1,6 +1,7 @@
 name: Set up clench toolchain
 description: >-
-  Installs everything clench builds need on a Linux x64 runner: stable Rust with
+  Installs everything clench builds need on a Linux x64 runner (with the wasm
+  tools and Bun switched off it also serves macOS runners): stable Rust with
   rustfmt, clippy and the wasm32-unknown-unknown target (plus any extra targets,
   e.g. thumbv7em-none-eabihf), a cached wasm-bindgen-cli at exactly the version
   pinned in Cargo.lock, binaryen's wasm-opt, and Bun (only needed to run
