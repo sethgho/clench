@@ -16,7 +16,9 @@
     "e2e": "node apps/web/e2e/check.ts",
     "ext:build": "sh scripts/build-wasm.sh && vite build apps/extension",
     "ext:build:e2e": "test -f crates/clench-wasm/pkg/clench_bg.wasm || sh scripts/build-wasm.sh; vite build apps/extension --mode e2e",
-    "ext:e2e": "bun run ext:build:e2e && node apps/extension/e2e/check.ts"
+    "ext:e2e": "bun run ext:build:e2e && node apps/extension/e2e/check.ts",
+    "apple:xcframework": "sh scripts/build-apple.sh",
+    "apple:test": "sh scripts/build-apple.sh --macos-only && cargo build -p clench-cli && cd apps/apple/ClenchKit && swift test"
   },
   "devDependencies": {
     "@types/bun": "1.4.4",
