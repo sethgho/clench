@@ -38,8 +38,6 @@
 //! `markdown` and `pdf` (both default) mirror the extractor's features, so a
 //! size-sensitive build can leave PDF support out.
 
-mod session;
-
 use std::sync::Once;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -48,7 +46,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::*;
 
-pub use session::{ContextView, Settings, build_player, word_count};
+pub use clench_core::session::{ContextView, Settings, build_player, word_count};
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_TYPES: &'static str = r#"

@@ -1,13 +1,17 @@
-//! The platform-independent part of the bindings: settings, player
-//! construction and the plain-data views handed to JavaScript.
+//! What every host binding shares: reading settings, player construction
+//! and a split view of the current token's block.
+//!
+//! The WebAssembly and native (UniFFI) bindings both build their sessions
+//! from these, so a settings object means the same thing in every host.
 
-use clench_core::{BlockKind, Context, Document, Pacing, Player, Script, ScriptOptions, TokenKind};
-use serde::{Deserialize, Serialize};
+use crate::{BlockKind, Context, Document, Pacing, Player, Script, ScriptOptions, TokenKind};
 
 /// Reading settings. Every field is optional; missing fields keep the
-/// engine's defaults, and unknown fields are rejected so typos surface.
-#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+/// engine's defaults. With the `serde` feature, unknown fields are rejected
+/// so typos surface.
+#[derive(Debug, Clone, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(default, deny_unknown_fields))]
 pub struct Settings {
     /// Words per minute. Overrides `pacing.wpm` when both are given.
     pub wpm: Option<u32>,
@@ -42,9 +46,11 @@ pub fn word_count(script: &Script) -> usize {
 }
 
 /// The current token's block split into the text before the token, the
-/// token itself and the text after it. JavaScript strings index by UTF-16
-/// code unit, so text pieces are handed over rather than byte offsets.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+/// token itself and the text after it. Hosts index strings differently
+/// (UTF-16 code units in JavaScript, grapheme clusters in Swift), so text
+/// pieces are handed over rather than byte offsets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct ContextView<'a> {
     /// Index of the block in the document's `blocks`.
     pub block: usize,
@@ -73,7 +79,8 @@ impl<'a> From<Context<'a>> for ContextView<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clench_core::{Block, PlayState};
+    use crate::{Block, PlayState};
+    use alloc::vec;
 
     fn doc() -> Document {
         Document::from_blocks(vec![
@@ -84,6 +91,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn settings_parse_partially_and_reject_unknown_fields() {
         let s: Settings =
             serde_json::from_str(r#"{"wpm": 450, "pacing": {"ease_in_words": 0}}"#).unwrap();
@@ -100,10 +108,19 @@ mod tests {
 
     #[test]
     fn wpm_overrides_pacing_and_policy_applies() {
-        let s: Settings = serde_json::from_str(
-            r#"{"wpm": 500, "pacing": {"wpm": 200}, "script": {"policy": {"code": "skip"}}}"#,
-        )
-        .unwrap();
+        let mut options = ScriptOptions::default();
+        options
+            .policy
+            .set(BlockKind::Code, crate::BlockAction::Skip);
+        let s = Settings {
+            wpm: Some(500),
+            pacing: Some(Pacing {
+                wpm: 200,
+                ..Pacing::default()
+            }),
+            script: Some(options),
+            rewind_on_resume: false,
+        };
         let player = build_player(&doc(), &s);
         assert_eq!(player.wpm(), 500);
         assert!(player.script().tokens().iter().all(|t| !t.is_marker()));
@@ -118,6 +135,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "serde")]
     fn omitted_serializes_as_plain_data() {
         let player = build_player(&doc(), &Settings::default());
         let json = serde_json::to_value(player.script().omitted()).unwrap();

@@ -98,6 +98,7 @@ mod document;
 mod pacing;
 mod player;
 mod script;
+pub mod session;
 mod text;
 
 pub use document::{Block, BlockKind, Document, Source};
