@@ -8,11 +8,17 @@ let package = Package(
     platforms: [.iOS(.v18), .macOS(.v15)],
     products: [
         .library(name: "ClenchKit", targets: ["ClenchKit"]),
+        .library(name: "ClenchUI", targets: ["ClenchUI"]),
     ],
     targets: [
         .binaryTarget(name: "ClenchCore", path: "Artifacts/ClenchCore.xcframework"),
         .target(name: "ClenchFFI", dependencies: ["ClenchCore"]),
         .target(name: "ClenchKit", dependencies: ["ClenchFFI"]),
-        .testTarget(name: "ClenchKitTests", dependencies: ["ClenchKit"]),
+        .target(
+            name: "ClenchUI",
+            dependencies: ["ClenchKit"],
+            resources: [.copy("Resources/Fonts")]
+        ),
+        .testTarget(name: "ClenchKitTests", dependencies: ["ClenchKit", "ClenchUI"]),
     ]
 )
