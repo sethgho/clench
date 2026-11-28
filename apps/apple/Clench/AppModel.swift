@@ -65,12 +65,8 @@ final class AppModel {
         switch DeepLink(url: url) {
         case let .read(id)?:
             path = [id]
-        case .queue?:
+        case .queue?, nil:
             path = []
-        case nil:
-            if let payload = ShareInput.payload(fromText: url.absoluteString, title: nil) {
-                read(payload)
-            }
         }
     }
 
